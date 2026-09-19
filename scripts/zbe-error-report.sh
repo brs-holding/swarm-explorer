@@ -16,6 +16,7 @@ DISK_PCT_MAX=85
 SWAP_PCT_MAX=50
 LOG_BYTES_MAX=$((1024 * 1024 * 1024))   # 1 GiB per container json.log
 HTTP_5XX_PCT_MAX=1
+BAD_GATEWAY_MAX=100                     # 502s = la app no estaba escuchando
 MAINNET_TIP_AGE_MAX=1800                # 30 min
 TESTNET_TIP_AGE_MAX=10800               # 3 h
 
@@ -57,6 +58,8 @@ check_tip() {
   fi
 }
 
+REPORT=$(mktemp)
+
 {
   echo "########################################################################"
   echo "# Reporte zcashexplorer - $(date -u '+%Y-%m-%d %H:%M UTC') - ultimas ${HOURS}h"
@@ -68,17 +71,28 @@ check_tip() {
   container_errors zbe_testnet
 
   section "HTTP 5xx (nginx, log actual)"
-  if [ -r /var/log/nginx/access.log ]; then
-    awk '{t++} $9 ~ /^5/ {e++; path=$7; sub(/\?.*/,"",path);
-          gsub(/[0-9a-f]{64}/,":hash",path); gsub(/\/address\/[A-Za-z0-9]+/,"/address/:addr",path);
-          c[path]++}
-         END { pct = t ? e*100/t : 0;
-               printf "total=%d  5xx=%d  (%.2f%%)\n", t, e, pct;
-               for (p in c) printf "%8d %s\n", c[p], p | "sort -rn | head -10";
-               exit (pct > PCTMAX) }' PCTMAX="$HTTP_5XX_PCT_MAX" /var/log/nginx/access.log ||
-      alert "HTTP 5xx por encima del ${HTTP_5XX_PCT_MAX}%"
+  ACCESS_LOG=/var/log/nginx/access.log
+  if [ -r "$ACCESS_LOG" ]; then
+    # 502 is tracked apart from 500: nginx could not reach the app at all, so a
+    # 502 flood is an outage, not a buggy handler.
+    read -r total err bad_gateway < <(
+      awk '{t++} $9 ~ /^5/ {e++} $9 == 502 {b++} END {print t+0, e+0, b+0}' "$ACCESS_LOG")
+    pct=$(awk -v e="$err" -v t="$total" 'BEGIN {printf "%.2f", t ? e*100/t : 0}')
+    echo "total=$total  5xx=$err  (${pct}%)  de los cuales 502=$bad_gateway"
+
+    awk '$9 ~ /^5/ {print "  " $9}' "$ACCESS_LOG" | sort | uniq -c | sort -rn
+    echo "  rutas con 5xx:"
+    awk '$9 ~ /^5/ {path=$7; sub(/\?.*/,"",path);
+                    gsub(/[0-9a-f]{64}/,":hash",path);
+                    gsub(/\/address\/[A-Za-z0-9]+/,"/address/:addr",path);
+                    print "  " path}' "$ACCESS_LOG" | sort | uniq -c | sort -rn | head -10
+
+    awk -v p="$pct" -v m="$HTTP_5XX_PCT_MAX" 'BEGIN {exit !(p > m)}' &&
+      alert "HTTP 5xx en ${pct}% (max ${HTTP_5XX_PCT_MAX}%)"
+    [ "$bad_gateway" -gt "$BAD_GATEWAY_MAX" ] &&
+      alert "${bad_gateway} respuestas 502: la app estuvo inalcanzable para nginx"
   else
-    echo "(sin acceso a /var/log/nginx/access.log)"
+    echo "(sin acceso a $ACCESS_LOG)"
   fi
 
   section "Cadena"
@@ -125,7 +139,12 @@ check_tip() {
   else
     printf 'ALERTA: %s\n' "${ALERTS[@]}"
   fi
-} 2>&1 | tee -a "$REPORT_LOG"
+} > "$REPORT" 2>&1
+
+# Deliberately not a pipeline: piping the block into tee would run it in a
+# subshell and the ALERTS array would never reach the exit status below.
+tee -a "$REPORT_LOG" < "$REPORT"
+rm -f "$REPORT"
 
 # Keep the report log from becoming the next runaway log.
 tail -c 5242880 "$REPORT_LOG" > "${REPORT_LOG}.tmp" && mv "${REPORT_LOG}.tmp" "$REPORT_LOG"
