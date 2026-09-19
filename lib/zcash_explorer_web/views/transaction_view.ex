@@ -201,6 +201,10 @@ defmodule ZcashExplorerWeb.TransactionView do
     "Transferred to shielded pool (Ironwood)"
   end
 
+  # Catch-all: the guards above enumerate known pool/fee shapes; an unlisted
+  # combination must not take down the whole transaction page.
+  def get_shielded_pool_label(_tx), do: "Unknown"
+
   # 247aaa9a1307ab094cc077123867b019a20aa35cc7e394d7607127e146d54922
   def get_shielded_pool_value(tx)
       when tx.vjoinsplit != nil and
@@ -355,6 +359,10 @@ defmodule ZcashExplorerWeb.TransactionView do
     0.00
   end
 
+  # Catch-all: the guards above enumerate known pool/fee shapes; an unlisted
+  # combination must not take down the whole transaction page.
+  def get_shielded_pool_value(_tx), do: 0.0
+
   def tx_in_total(tx) when is_map(tx) do
     tx.vin |> Enum.reduce(0, fn x, acc -> (x.value || 0) + acc end)
   end
@@ -413,6 +421,10 @@ defmodule ZcashExplorerWeb.TransactionView do
     fee |> format_zec()
   end
 
+  # Catch-all: the guards above enumerate known pool/fee shapes; an unlisted
+  # combination must not take down the whole transaction page.
+  def shielding_tx_fee(_tx), do: "¯\\_(ツ)_/¯"
+
   def deshielding_tx_fees(tx) when is_map(tx) and length(tx.vjoinsplit) > 0 do
     fee = vjoinsplit_vpub_new_total(tx) - tx_out_total(tx)
     fee |> format_zec()
@@ -452,6 +464,10 @@ defmodule ZcashExplorerWeb.TransactionView do
     fee = tx.valueBalance - tx_out_total(tx)
     fee |> format_zec()
   end
+
+  # Catch-all: the guards above enumerate known pool/fee shapes; an unlisted
+  # combination must not take down the whole transaction page.
+  def deshielding_tx_fees(_tx), do: "¯\\_(ツ)_/¯"
 
   # e145617c5d7d1646674da1d36540faff8e548738c0f500857e3230b35e85ca5f
   def unknown_tx_fees(tx)
@@ -526,6 +542,10 @@ defmodule ZcashExplorerWeb.TransactionView do
   end
 
   # exampple tx ( mainnet )
+  # Catch-all: the guards above enumerate known pool/fee shapes; an unlisted
+  # combination must not take down the whole transaction page.
+  def unknown_tx_fees(_tx), do: "¯\\_(ツ)_/¯"
+
   # 872878da4a04b54d7134000d2f81d3bea3319cd946cab69a43699261415bb583
   def mixed_tx_fees(tx)
       when is_map(tx) and
@@ -632,4 +652,8 @@ defmodule ZcashExplorerWeb.TransactionView do
     fee = tx_in_total(tx) - abs(tx.ironwood.valueBalance) - tx_out_total(tx)
     fee |> format_zec()
   end
+
+  # Catch-all: the guards above enumerate known pool/fee shapes; an unlisted
+  # combination must not take down the whole transaction page.
+  def mixed_tx_fees(_tx), do: "¯\\_(ツ)_/¯"
 end

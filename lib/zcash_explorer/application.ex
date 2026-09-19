@@ -28,18 +28,26 @@ defmodule ZcashExplorer.Application do
              Application.get_env(:zcash_explorer, Zcashex)[:zcashd_password]
            ]}
       },
-      {Cachex,
-       name: :app_cache,
-       warmers: [
-         warmer(module: ZcashExplorer.Metrics.MetricsWarmer, state: {}),
-         warmer(module: ZcashExplorer.Metrics.MempoolInfoWarmer, state: {}),
-         warmer(module: ZcashExplorer.Metrics.NetworkSolpsWarmer, state: {}),
-         warmer(module: ZcashExplorer.Blocks.BlockWarmer, state: {}),
-         warmer(module: ZcashExplorer.Transactions.TransactionWarmer, state: {}),
-         warmer(module: ZcashExplorer.Mempool.MempoolWarmer, state: {}),
-         warmer(module: ZcashExplorer.Nodes.NodeWarmer, state: {}),
-         warmer(module: ZcashExplorer.Metrics.InfoWarmer, state: {})
-       ]}
+      {
+        Cachex,
+        # Raw transactions are cached here by transaction_controller; their `hex`
+        # field runs to tens of KB, so without a bound the cache grew until the
+        # OOM killer took the node down. 10k entries caps it at a few hundred MB;
+        # the warmers rewrite their keys every 15s so LRW never evicts them.
+        name: :app_cache,
+        limit: limit(size: 10_000, policy: Cachex.Policy.LRW, reclaim: 0.1),
+        expiration: expiration(default: :timer.hours(1), interval: :timer.minutes(5)),
+        warmers: [
+          warmer(module: ZcashExplorer.Metrics.MetricsWarmer, state: {}),
+          warmer(module: ZcashExplorer.Metrics.MempoolInfoWarmer, state: {}),
+          warmer(module: ZcashExplorer.Metrics.NetworkSolpsWarmer, state: {}),
+          warmer(module: ZcashExplorer.Blocks.BlockWarmer, state: {}),
+          warmer(module: ZcashExplorer.Transactions.TransactionWarmer, state: {}),
+          warmer(module: ZcashExplorer.Mempool.MempoolWarmer, state: {}),
+          warmer(module: ZcashExplorer.Nodes.NodeWarmer, state: {}),
+          warmer(module: ZcashExplorer.Metrics.InfoWarmer, state: {})
+        ]
+      }
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

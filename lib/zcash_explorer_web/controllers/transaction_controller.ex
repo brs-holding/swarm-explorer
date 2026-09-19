@@ -18,13 +18,18 @@ defmodule ZcashExplorerWeb.TransactionController do
     end
   end
 
+  # Bots poll this for transactions they have just broadcast, before this node
+  # has seen them, so a miss is a routine 404 and not a 500.
   def get_raw_transaction(conn, %{"txid" => txid}) do
-    {:ok, tx} = Zcashex.getrawtransaction(txid, 1)
-    data = Poison.encode!(tx, pretty: true)
+    {status, body} =
+      case Zcashex.getrawtransaction(txid, 1) do
+        {:ok, tx} -> {200, tx}
+        {:error, reason} -> {404, %{error: reason, txid: txid}}
+      end
 
     conn
     |> put_resp_content_type("application/json")
-    |> send_resp(200, data)
+    |> send_resp(status, Poison.encode!(body, pretty: true))
   end
 
   # Zebra's getrawtransaction never populates vin[].address/vin[].value (unlike

@@ -71,26 +71,11 @@ zcash_network =
     environment variable ZCASH_NETWORK is missing
     """
 
-config :logger, level: :debug
+# :debug here wrote a full stack trace plus every request's params to the
+# container log; it reached 7.2 GB with no rotation. Override with LOG_LEVEL.
+config :logger, level: String.to_existing_atom(System.get_env("LOG_LEVEL", "info"))
 
-IO.inspect(
-  %{
-    secret_key_base: secret_key_base,
-    zcashd_hostname: zcashd_hostname,
-    zcashd_port: zcashd_port,
-    zcashd_username: zcashd_username,
-    zcashd_password: zcashd_password,
-    explorer_hostname: explorer_hostname,
-    be_onion_address: be_onion_address,
-    vk_cpus: vk_cpus,
-    vk_mem: vk_mem,
-    vk_runnner_image: vk_runnner_image,
-    zcash_network: zcash_network
-  },
-  label: "Configuration loaded"
-)
-
-IO.inspect("Setting up Endpoint configuration", label: "Configuration")
+IO.puts("Configuration loaded for #{zcash_network} at #{explorer_hostname}")
 
 config :zcash_explorer, ZcashExplorerWeb.Endpoint,
   url: [

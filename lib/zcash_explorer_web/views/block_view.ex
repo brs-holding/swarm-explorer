@@ -32,6 +32,8 @@ defmodule ZcashExplorerWeb.BlockView do
     txs |> Enum.reduce(0, fn x, acc -> length(x.vout) + acc end)
   end
 
+  def is_coinbase_tx?(nil), do: false
+
   def is_coinbase_tx?(tx) when tx.vin == [] do
     false
   end
@@ -61,24 +63,31 @@ defmodule ZcashExplorerWeb.BlockView do
     try do
       coinbase_binary = Base.decode16!(coinbase_hex, case: :mixed)
       coinbase_list = :erlang.binary_to_list(coinbase_binary)
-      List.to_string(coinbase_list) |> IO.inspect(charlists: :as_charlists)
+      List.to_string(coinbase_list)
     rescue
       _e in ArgumentError -> "unable to decode coinbase hex"
     end
   end
 
+  # A shielded coinbase output has no scriptPubKey.addresses, so every hop here
+  # has to tolerate nil instead of blowing up the whole block page.
   def mined_by(txs) do
-    first_trx = txs |> List.first()
+    first_trx = List.first(List.wrap(txs))
 
     if is_coinbase_tx?(first_trx) do
       first_trx
       |> Map.get(:vout)
+      |> List.wrap()
       |> List.first()
-      |> Map.get(:scriptPubKey)
-      |> Map.get(:addresses)
+      |> get_field(:scriptPubKey)
+      |> get_field(:addresses)
+      |> List.wrap()
       |> List.first()
     end
   end
+
+  defp get_field(nil, _key), do: nil
+  defp get_field(map, key), do: Map.get(map, key)
 
   def input_total(txs) do
     [_hd | tail] = txs

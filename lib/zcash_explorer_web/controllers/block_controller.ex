@@ -1,25 +1,43 @@
 defmodule ZcashExplorerWeb.BlockController do
   use ZcashExplorerWeb, :controller
 
+  @default_limit 20
+
   def get_block(conn, %{"hash" => hash}) do
-    {:ok, basic_block_data} = Zcashex.getblock(hash, 1)
+    case Zcashex.getblock(hash, 1) do
+      {:ok, basic_block_data} -> render_block(conn, hash, basic_block_data)
+      {:error, _reason} -> not_found(conn, hash)
+    end
+  end
 
-    case length(basic_block_data["tx"]) do
-      0 ->
-        {:error, :no_tx}
+  def index(conn, params) do
+    limit = parse_int(params["limit"]) || @default_limit
 
-      n when n <= 250 ->
-        {:ok, block_data} = Zcashex.getblock(hash, 2)
-        block_data = Zcashex.Block.from_map(block_data)
-        height = block_data.height
+    case parse_int(params["block"]) || tip_height() do
+      nil ->
+        not_found(conn, "blocks")
 
-        render(conn, "index.html",
-          block_data: block_data,
-          block_subsidy: nil,
-          page_title: "Zcash block #{height}"
-        )
+      from_block ->
+        render_index(conn, from_block, limit, is_nil(params["block"]))
+    end
+  end
 
-      n when n > 250 ->
+  # Full verbosity (2) is only needed to render a single block's transactions.
+  # Anything over 250 txs is rendered from the light listing instead.
+  defp render_block(conn, hash, basic_block_data) do
+    txs = basic_block_data["tx"] || []
+
+    with true <- length(txs) in 1..250,
+         {:ok, block_data} <- Zcashex.getblock(hash, 2) do
+      block_data = Zcashex.Block.from_map(block_data)
+
+      render(conn, "index.html",
+        block_data: block_data,
+        block_subsidy: nil,
+        page_title: "Zcash block #{block_data.height}"
+      )
+    else
+      _ ->
         render(conn, "basic_block.html",
           block_data: basic_block_data,
           page_title: "Zcash block #{hash}"
@@ -27,51 +45,58 @@ defmodule ZcashExplorerWeb.BlockController do
     end
   end
 
-  def index(conn, params) do
-    max_concurrency = System.schedulers_online() * 2
-    limit = String.to_integer(Map.get(params, "limit", "20"))
-
-    block = params["block"]
-
-    from_block =
-      if is_nil(block) do
-        case Zcashex.getblockcount() do
-          {:ok, n} ->
-            n
-        end
-      else
-        String.to_integer(block)
-      end
-
+  defp render_index(conn, from_block, limit, disable_previous) do
     to_block = max(from_block - limit, 0)
-    disable_previous = if is_nil(block), do: true, else: false
-    disable_next = if from_block == 0, do: true, else: false
-
-    blocks =
-      Enum.to_list(to_block..from_block)
-      |> Enum.map(fn x ->
-        {:ok, block} = Zcashex.getblock(x, 2)
-        block["hash"]
-      end)
+    max_concurrency = System.schedulers_online() * 2
 
     blocks_data =
-      blocks
-      |> Task.async_stream(fn block -> Zcashex.getblockheader(block) end,
-        max_concurrency: max_concurrency,
-        ordered: false
-      )
-      |> Enum.to_list()
-      |> Enum.map(fn {_task, {:ok, res}} -> res end)
+      to_block..from_block
+      |> Task.async_stream(&block_header/1, max_concurrency: max_concurrency, ordered: false)
+      |> Enum.flat_map(fn
+        {:ok, {:ok, header}} -> [header]
+        _ -> []
+      end)
       |> Enum.reverse()
 
     render(conn, "blocks.html",
       blocks_data: blocks_data,
-      disable_next: disable_next,
+      disable_next: from_block == 0,
       disable_previous: disable_previous,
       date: "",
       previous: from_block + limit,
       next: to_block,
       page_title: "Zcash latest blocks"
     )
+  end
+
+  # Verbosity 1 already carries the hash; verbosity 2 pulled every transaction
+  # of every listed block just to read it.
+  defp block_header(height) do
+    with {:ok, %{"hash" => hash}} <- Zcashex.getblock(height, 1) do
+      Zcashex.getblockheader(hash)
+    end
+  end
+
+  defp tip_height do
+    case Zcashex.getblockcount() do
+      {:ok, n} -> n
+      _ -> nil
+    end
+  end
+
+  defp parse_int(nil), do: nil
+
+  defp parse_int(value) do
+    case Integer.parse(value) do
+      {n, ""} when n >= 0 -> n
+      _ -> nil
+    end
+  end
+
+  defp not_found(conn, subject) do
+    conn
+    |> put_status(:not_found)
+    |> put_view(ZcashExplorerWeb.ErrorView)
+    |> render(:"404", subject: subject)
   end
 end

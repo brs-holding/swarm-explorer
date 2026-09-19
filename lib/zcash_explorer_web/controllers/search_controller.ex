@@ -17,24 +17,18 @@ defmodule ZcashExplorerWeb.SearchController do
       Task.async(fn -> Zcashex.z_validateaddress(qs) end)
     ]
 
-    run = Task.yield_many(tasks, 5000)
-
-    results =
-      Enum.map(run, fn {task, res} ->
-        # Shut down the tasks that did not reply nor exit
-        res || Task.shutdown(task, :brutal_kill)
+    # order in which the tasks are above defined matters. A task that neither
+    # replied nor exited within the timeout yields nil, so unwrap defensively
+    # instead of matching {:ok, _} and crashing the request.
+    [block_resp, tx_resp, tadd_resp, zadd_resp] =
+      tasks
+      |> Task.yield_many(5000)
+      |> Enum.map(fn {task, res} ->
+        case res || Task.shutdown(task, :brutal_kill) do
+          {:ok, value} -> value
+          _ -> {:error, :timeout}
+        end
       end)
-
-    # order in which the tasks are above defined matters
-    {:ok, block_resp} = Enum.at(results, 0)
-    {:ok, tx_resp} = Enum.at(results, 1)
-    {:ok, tadd_resp} = Enum.at(results, 2)
-    {:ok, zadd_resp} = Enum.at(results, 3)
-
-    IO.inspect(block_resp)
-    IO.inspect(tx_resp)
-    IO.inspect(tadd_resp)
-    IO.inspect(zadd_resp)
 
     cond do
       is_valid_block?(block_resp) ->
@@ -60,63 +54,26 @@ defmodule ZcashExplorerWeb.SearchController do
     end
   end
 
-  def is_valid_block?({:ok, {:error, "Block not found"}}) do
-    false
-  end
+  def is_valid_block?({:ok, {:error, _reason}}), do: false
+  def is_valid_block?({:ok, _hex}), do: true
+  def is_valid_block?(_resp), do: false
 
-  def is_valid_block?({:ok, _hex}) do
-    true
-  end
+  def is_valid_tx?({:ok, _hex}), do: true
+  def is_valid_tx?(_resp), do: false
 
-  def is_valid_block?({:error, _reason}) do
-    false
-  end
+  def is_valid_taddr?({:ok, %{"isvalid" => true}}), do: true
+  def is_valid_taddr?(_resp), do: false
 
-  def is_valid_tx?({:ok, _hex}) do
-    true
-  end
+  # zcashd reported the address kind under "type"; zebrad uses "address_type".
+  def is_valid_zaddr?({:ok, %{"isvalid" => true} = resp}),
+    do: address_type(resp) in ["sprout", "sapling"]
 
-  def is_valid_tx?({:error, _reason}) do
-    false
-  end
+  def is_valid_zaddr?(_resp), do: false
 
-  def is_valid_taddr?({:ok, %{"isvalid" => true}}) do
-    true
-  end
+  def is_valid_unified_address?({:ok, %{"isvalid" => true} = resp}),
+    do: address_type(resp) == "unified"
 
-  def is_valid_taddr?({:ok, %{"isvalid" => false}}) do
-    false
-  end
+  def is_valid_unified_address?(_resp), do: false
 
-  def is_valid_zaddr?({:ok, %{"isvalid" => true, "type" => "sprout"}}) do
-    true
-  end
-
-  def is_valid_zaddr?({:ok, %{"isvalid" => true, "type" => "sapling"}}) do
-    true
-  end
-
-  def is_valid_zaddr?({:ok, %{"isvalid" => true, "type" => "unified"}}) do
-    false
-  end
-
-  def is_valid_zaddr?({:ok, %{"isvalid" => false}}) do
-    false
-  end
-
-  def is_valid_zaddr?({:ok, %{"isvalid" => true, "address_type" => "unified"}}) do
-    false
-  end
-
-  def is_valid_unified_address?({:ok, %{"isvalid" => true, "type" => "unified"}}) do
-    true
-  end
-
-  def is_valid_unified_address?({:ok, %{"isvalid" => true, "address_type" => "unified"}}) do
-    true
-  end
-
-  def is_valid_unified_address?(_resp) do
-    false
-  end
+  defp address_type(resp), do: resp["address_type"] || resp["type"]
 end
