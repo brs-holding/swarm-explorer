@@ -60,7 +60,9 @@ defmodule ZcashExplorerWeb.RecentBlocksLive do
         {:ok, assign(socket, block_cache: info, chain: chain)}
 
       {:error, _reason} ->
-        {:ok, assign(socket, :block_cache, "loading...")}
+        # The template iterates this assign, so a cold cache has to fall back to
+        # an empty list; "loading..." raised Protocol.UndefinedError on /mempool.
+        {:ok, assign(socket, :block_cache, [])}
     end
   end
 

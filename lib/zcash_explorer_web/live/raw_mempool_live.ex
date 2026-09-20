@@ -52,7 +52,9 @@ defmodule ZcashExplorerWeb.RawMempoolLive do
         {:ok, assign(socket, :raw_mempool, mempool)}
 
       {:error, _reason} ->
-        {:ok, assign(socket, :raw_mempool, "loading...")}
+        # The template iterates this assign, so a cold cache has to fall back to
+        # an empty list; "loading..." raised Protocol.UndefinedError on /mempool.
+        {:ok, assign(socket, :raw_mempool, [])}
     end
   end
 

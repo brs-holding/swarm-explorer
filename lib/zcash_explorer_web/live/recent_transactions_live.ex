@@ -99,7 +99,9 @@ defmodule ZcashExplorerWeb.RecentTransactionsLive do
          )}
 
       {:error, _reason} ->
-        {:ok, assign(socket, :transaction_cache, "loading...")}
+        # The template iterates this assign, so a cold cache has to fall back to
+        # an empty list; "loading..." raised Protocol.UndefinedError on /mempool.
+        {:ok, assign(socket, :transaction_cache, [])}
     end
   end
 

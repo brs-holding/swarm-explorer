@@ -42,7 +42,9 @@ defmodule ZcashExplorerWeb.NodesLive do
         {:ok, assign(socket, :zcash_nodes, zcash_nodes)}
 
       {:error, _reason} ->
-        {:ok, assign(socket, :zcash_nodes, "loading...")}
+        # The template iterates this assign, so a cold cache has to fall back to
+        # an empty list; "loading..." raised Protocol.UndefinedError on /mempool.
+        {:ok, assign(socket, :zcash_nodes, [])}
     end
   end
 

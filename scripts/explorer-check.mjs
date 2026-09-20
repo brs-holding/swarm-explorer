@@ -128,6 +128,8 @@ const EDGE = [
   ['busqueda de direccion sapling',
    '/search?qs=zs1das2v8wedfwnkugaufv7zfzlnmmjwl4dq0grhx5whuy2l2efz4janalwpkrwv9kxfy9yjxdfgfy'],
   ['listado de bloques con limit no numerico', '/blocks?limit=abc'],
+  ['mempool (itera un assign que puede venir vacio)', '/mempool'],
+  ['nodos (idem)', '/nodes'],
 ];
 const edgeResults = [];
 {
