@@ -48,6 +48,12 @@ tip_age() {   # port -> seconds since the tip block was mined, or "?"
 
 check_tip() {
   local label="$1" port="$2" max="$3" age
+  # Not every host runs both networks; a closed port means "not deployed here",
+  # which is not something to alert about every morning.
+  if ! timeout 3 bash -c "</dev/tcp/127.0.0.1/$port" 2>/dev/null; then
+    echo "$label: sin nodo en :$port (omitido)"
+    return
+  fi
   age=$(tip_age "$port")
   if [ "$age" = "?" ]; then
     echo "$label: RPC en :$port no responde"
