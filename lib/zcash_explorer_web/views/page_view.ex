@@ -1,8 +1,6 @@
 defmodule ZcashExplorerWeb.PageView do
   use ZcashExplorerWeb, :view
 
-  def price() do
-    {:ok, price} = Cachex.get(:price_cache, "price")
-    price
-  end
+  # price/0 lived here reading a :price_cache that is never started, so it
+  # raised on every call. Nothing referenced it.
 end

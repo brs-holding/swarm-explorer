@@ -54,9 +54,9 @@ defmodule ZcashExplorerWeb.RecentBlocksLive do
   def mount(_params, _session, socket) do
     if connected?(socket), do: Process.send_after(self(), :update, 1000)
 
-    case Cachex.get(:app_cache, "block_cache") do
+    case ZcashExplorer.Cache.fetch("block_cache") do
       {:ok, info} ->
-        {:ok, %{"chain" => chain}} = Cachex.get(:app_cache, "metrics")
+        chain = ZcashExplorer.Cache.field("metrics", "chain")
         {:ok, assign(socket, block_cache: info, chain: chain)}
 
       {:error, _reason} ->
@@ -67,7 +67,7 @@ defmodule ZcashExplorerWeb.RecentBlocksLive do
   @impl true
   def handle_info(:update, socket) do
     Process.send_after(self(), :update, 1000)
-    {:ok, info} = Cachex.get(:app_cache, "block_cache")
+    info = ZcashExplorer.Cache.get("block_cache", [])
     {:noreply, assign(socket, :block_cache, info)}
   end
 end

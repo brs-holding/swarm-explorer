@@ -79,7 +79,7 @@ defmodule ZcashExplorerWeb.PageController do
 
   def vk(conn, _params) do
     height =
-      case Cachex.get(:app_cache, "metrics") do
+      case ZcashExplorer.Cache.fetch("metrics") do
         {:ok, info} ->
           info["blocks"] - 10000
 
@@ -157,8 +157,8 @@ defmodule ZcashExplorerWeb.PageController do
   end
 
   def blockchain_info_api(conn, _params) do
-    {:ok, info} = Cachex.get(:app_cache, "metrics")
-    {:ok, %{"build" => build}} = Cachex.get(:app_cache, "info")
+    info = ZcashExplorer.Cache.get("metrics", %{})
+    build = ZcashExplorer.Cache.field("info", "build")
     info = Map.put(info, "build", build)
     json(conn, info)
   end
@@ -179,8 +179,8 @@ defmodule ZcashExplorerWeb.PageController do
   """
   def supply(conn, params) do
     if params == %{} do
-      {:ok, info} = Cachex.get(:app_cache, "metrics")
-      {:ok, %{"build" => build}} = Cachex.get(:app_cache, "info")
+      info = ZcashExplorer.Cache.get("metrics", %{})
+      build = ZcashExplorer.Cache.field("info", "build")
       info = Map.put(info, "build", build)
       # Extract the chainValue from the chainSupply map
       value_pools = info["valuePools"]
@@ -188,16 +188,16 @@ defmodule ZcashExplorerWeb.PageController do
     else
       case params["q"] do
         "totalSupply" ->
-          {:ok, info} = Cachex.get(:app_cache, "metrics")
-          {:ok, %{"build" => build}} = Cachex.get(:app_cache, "info")
+          info = ZcashExplorer.Cache.get("metrics", %{})
+          build = ZcashExplorer.Cache.field("info", "build")
           info = Map.put(info, "build", build)
           # get total supply (chain value)
           total_supply = get_in(info, ["chainSupply", "chainValue"])
           send_resp(conn, 200, to_string(total_supply))
 
         "circulatingSupply" ->
-          {:ok, info} = Cachex.get(:app_cache, "metrics")
-          {:ok, %{"build" => build}} = Cachex.get(:app_cache, "info")
+          info = ZcashExplorer.Cache.get("metrics", %{})
+          build = ZcashExplorer.Cache.field("info", "build")
           info = Map.put(info, "build", build)
           total_supply = get_in(info, ["chainSupply", "chainValue"])
 

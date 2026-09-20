@@ -100,7 +100,7 @@ defmodule ZcashExplorerWeb.AddressController do
   end
 
   defp latest_block do
-    case Cachex.get(:app_cache, "metrics") do
+    case ZcashExplorer.Cache.fetch("metrics") do
       {:ok, %{"blocks" => blocks}} -> blocks
       _ -> 0
     end

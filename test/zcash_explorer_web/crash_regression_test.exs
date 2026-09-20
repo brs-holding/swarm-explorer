@@ -74,6 +74,39 @@ defmodule ZcashExplorerWeb.CrashRegressionTest do
     end
   end
 
+  describe "ZcashExplorer.Cache with a cold cache" do
+    # The mempool warmer refuses to run until zebrad reaches the tip, so during
+    # a resync these keys stay unset and every {:ok, v} match used to succeed
+    # with nil: length(nil) took down the home page.
+    setup do
+      {:ok, _} = Application.ensure_all_started(:cachex)
+      name = :"cache_test_#{System.unique_integer([:positive])}"
+      {:ok, _pid} = Cachex.start_link(name)
+      %{cache: name}
+    end
+
+    test "a missing key reports an error instead of {:ok, nil}", %{cache: c} do
+      assert ZcashExplorer.Cache.fetch("raw_mempool", c) == {:error, :missing}
+    end
+
+    test "get/3 falls back to the default", %{cache: c} do
+      assert ZcashExplorer.Cache.get("raw_mempool", [], c) == []
+      assert length(ZcashExplorer.Cache.get("raw_mempool", [], c)) == 0
+      assert ZcashExplorer.Cache.get("metrics", %{}, c)["blocks"] == nil
+    end
+
+    test "field/3 is nil rather than a MatchError", %{cache: c} do
+      assert ZcashExplorer.Cache.field("info", "build", c) == nil
+    end
+
+    test "a warmed key still comes back", %{cache: c} do
+      Cachex.put(c, "metrics", %{"blocks" => 42})
+      assert ZcashExplorer.Cache.fetch("metrics", c) == {:ok, %{"blocks" => 42}}
+      assert ZcashExplorer.Cache.get("metrics", %{}, c)["blocks"] == 42
+      assert ZcashExplorer.Cache.field("metrics", "blocks", c) == 42
+    end
+  end
+
   describe "search address predicates" do
     test "accepts zebrad's address_type key" do
       zebrad = {:ok, %{"isvalid" => true, "address_type" => "sapling"}}

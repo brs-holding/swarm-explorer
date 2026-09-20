@@ -14,7 +14,7 @@ defmodule ZcashExplorerWeb.MempoolInfoLive do
   def mount(_params, _session, socket) do
     if connected?(socket), do: Process.send_after(self(), :update, 1000)
 
-    case Cachex.get(:app_cache, "raw_mempool") do
+    case ZcashExplorer.Cache.fetch("raw_mempool") do
       {:ok, info} ->
         {:ok, assign(socket, :mempool_info, length(info))}
 
@@ -26,7 +26,7 @@ defmodule ZcashExplorerWeb.MempoolInfoLive do
   @impl true
   def handle_info(:update, socket) do
     Process.send_after(self(), :update, 1000)
-    {:ok, info} = Cachex.get(:app_cache, "raw_mempool")
+    info = ZcashExplorer.Cache.get("raw_mempool", [])
     {:noreply, assign(socket, :mempool_info, length(info))}
   end
 end

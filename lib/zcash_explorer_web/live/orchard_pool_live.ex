@@ -16,9 +16,9 @@ defmodule ZcashExplorerWeb.OrchardPoolLive do
   def mount(_params, _session, socket) do
     if connected?(socket), do: Process.send_after(self(), :update, 15000)
 
-    case Cachex.get(:app_cache, "metrics") do
+    case ZcashExplorer.Cache.fetch("metrics") do
       {:ok, info} ->
-        {:ok, %{"build" => build}} = Cachex.get(:app_cache, "info")
+        build = ZcashExplorer.Cache.field("info", "build")
         info = Map.put(info, "build", build)
         {:ok, assign(socket, :blockchain_info, info)}
 
@@ -30,8 +30,8 @@ defmodule ZcashExplorerWeb.OrchardPoolLive do
   @impl true
   def handle_info(:update, socket) do
     Process.send_after(self(), :update, 15000)
-    {:ok, info} = Cachex.get(:app_cache, "metrics")
-    {:ok, %{"build" => build}} = Cachex.get(:app_cache, "info")
+    info = ZcashExplorer.Cache.get("metrics", %{})
+    build = ZcashExplorer.Cache.field("info", "build")
     info = Map.put(info, "build", build)
     {:noreply, assign(socket, :blockchain_info, info)}
   end

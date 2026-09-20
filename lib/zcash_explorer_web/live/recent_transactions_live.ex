@@ -88,9 +88,9 @@ defmodule ZcashExplorerWeb.RecentTransactionsLive do
   def mount(_params, _session, socket) do
     if connected?(socket), do: Process.send_after(self(), :update, 1000)
 
-    case Cachex.get(:app_cache, "transaction_cache") do
+    case ZcashExplorer.Cache.fetch("transaction_cache") do
       {:ok, info} ->
-        {:ok, %{"chain" => chain}} = Cachex.get(:app_cache, "metrics")
+        chain = ZcashExplorer.Cache.field("metrics", "chain")
 
         {:ok,
          assign(socket,
@@ -106,7 +106,7 @@ defmodule ZcashExplorerWeb.RecentTransactionsLive do
   @impl true
   def handle_info(:update, socket) do
     Process.send_after(self(), :update, 1000)
-    {:ok, info} = Cachex.get(:app_cache, "transaction_cache")
+    info = ZcashExplorer.Cache.get("transaction_cache", [])
     {:noreply, assign(socket, :transaction_cache, info)}
   end
 end

@@ -37,7 +37,7 @@ defmodule ZcashExplorerWeb.NodesLive do
   def mount(_params, _session, socket) do
     if connected?(socket), do: Process.send_after(self(), :update, 5000)
 
-    case Cachex.get(:app_cache, "zcash_nodes") do
+    case ZcashExplorer.Cache.fetch("zcash_nodes") do
       {:ok, zcash_nodes} ->
         {:ok, assign(socket, :zcash_nodes, zcash_nodes)}
 
@@ -49,7 +49,7 @@ defmodule ZcashExplorerWeb.NodesLive do
   @impl true
   def handle_info(:update, socket) do
     Process.send_after(self(), :update, 5000)
-    {:ok, zcash_nodes} = Cachex.get(:app_cache, "zcash_nodes")
+    zcash_nodes = ZcashExplorer.Cache.get("zcash_nodes", [])
     {:noreply, assign(socket, :zcash_nodes, zcash_nodes)}
   end
 end

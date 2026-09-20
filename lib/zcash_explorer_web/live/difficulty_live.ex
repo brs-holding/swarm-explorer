@@ -14,7 +14,7 @@ defmodule ZcashExplorerWeb.DifficultyLive do
   def mount(_params, _session, socket) do
     if connected?(socket), do: Process.send_after(self(), :update, 5000)
 
-    case Cachex.get(:app_cache, "metrics") do
+    case ZcashExplorer.Cache.fetch("metrics") do
       {:ok, info} ->
         {:ok, assign(socket, :difficulty, info["difficulty"])}
 
@@ -26,7 +26,7 @@ defmodule ZcashExplorerWeb.DifficultyLive do
   @impl true
   def handle_info(:update, socket) do
     Process.send_after(self(), :update, 5000)
-    {:ok, info} = Cachex.get(:app_cache, "metrics")
+    info = ZcashExplorer.Cache.get("metrics", %{})
     {:noreply, assign(socket, :difficulty, info["difficulty"])}
   end
 end
