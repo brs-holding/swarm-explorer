@@ -41,11 +41,13 @@ be_onion_address =
     {:error, _reason} -> System.get_env("BE_ONION_ADDRESS") || ""
   end
 
+# Phoenix wants a bare host here; EXPLORER_SCHEME supplies the scheme. The
+# deployed value included "https://", which rendered as
+# "Access ZcashExplorerWeb.Endpoint at https://[https://zcashblockexplorer.com]".
 explorer_hostname =
-  System.fetch_env!("EXPLORER_HOSTNAME") ||
-    raise """
-    environment variable EXPLORER_HOSTNAME is missing
-    """
+  System.fetch_env!("EXPLORER_HOSTNAME")
+  |> String.replace(~r{^[a-z]+://}, "")
+  |> String.trim_trailing("/")
 
 vk_cpus =
   System.fetch_env!("VK_CPUS") ||
