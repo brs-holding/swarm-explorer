@@ -9,6 +9,12 @@ const COUNT = Number(process.argv[3] || 100);
 const RPC = process.argv[4] || 'http://127.0.0.1:18232/';
 const CONCURRENCY = 6;
 
+// nginx blocks ~*HeadlessChrome as a bad bot, so the check has to present the
+// same user agent a real visitor would.
+const USER_AGENT =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 ' +
+  '(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';
+
 const rpc = async (method, params = []) => {
   const r = await fetch(RPC, {
     method: 'POST',
@@ -58,7 +64,7 @@ async function runPool(browser, jobs) {
   let next = 0;
   await Promise.all(
     Array.from({ length: CONCURRENCY }, async () => {
-      const ctx = await browser.newContext({ ignoreHTTPSErrors: true });
+      const ctx = await browser.newContext({ ignoreHTTPSErrors: true, userAgent: USER_AGENT });
       const page = await ctx.newPage();
       while (true) {
         const i = next++;
@@ -125,7 +131,7 @@ const EDGE = [
 ];
 const edgeResults = [];
 {
-  const ctx = await browser.newContext({ ignoreHTTPSErrors: true });
+  const ctx = await browser.newContext({ ignoreHTTPSErrors: true, userAgent: USER_AGENT });
   const page = await ctx.newPage();
   for (const [label, path] of EDGE) {
     const r = await checkPage(page, BASE + path, {});
