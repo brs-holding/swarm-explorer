@@ -47,25 +47,7 @@ defmodule ZcashExplorerWeb.BlockController do
 
   defp render_index(conn, from_block, limit, disable_previous) do
     to_block = max(from_block - limit, 0)
-    max_concurrency = System.schedulers_online() * 2
-
-    blocks_data =
-      to_block..from_block
-      # Every task funnels into the single Zcashex GenServer, so concurrency here
-      # only queues work: 21 blocks routinely exceed async_stream's 5s default.
-      # on_timeout: :kill_task is what lets the clause below drop a slow block
-      # instead of exiting the request -- :exit, the default, kills the caller.
-      |> Task.async_stream(&block_header/1,
-        max_concurrency: max_concurrency,
-        ordered: false,
-        timeout: 20_000,
-        on_timeout: :kill_task
-      )
-      |> Enum.flat_map(fn
-        {:ok, {:ok, header}} -> [header]
-        _ -> []
-      end)
-      |> Enum.reverse()
+    blocks_data = cached_block_headers(to_block, from_block)
 
     render(conn, "blocks.html",
       blocks_data: blocks_data,
@@ -76,6 +58,45 @@ defmodule ZcashExplorerWeb.BlockController do
       next: to_block,
       page_title: "Zcash latest blocks"
     )
+  end
+
+  # Bots poll /blocks continuously and every miss costs 21 getblock plus 21
+  # getblockheader calls through the single Zcashex process, which is what
+  # pushed responses past nginx's 36s proxy_read_timeout. Cachex.fetch/3
+  # collapses concurrent callers onto one computation instead of stampeding.
+  defp cached_block_headers(to_block, from_block) do
+    key = "block_headers:#{to_block}:#{from_block}"
+
+    case Cachex.fetch(:app_cache, key, fn -> {:commit, block_headers(to_block, from_block)} end) do
+      # Only the run that computed the value sets the TTL. Refreshing it on
+      # every hit would slide the expiry forward under steady traffic and the
+      # listing would never refresh. This Cachex version ignores a per-commit
+      # ttl, so without it the entry would inherit the cache-wide 1h default.
+      {:commit, headers} ->
+        Cachex.expire(:app_cache, key, :timer.seconds(15))
+        headers
+
+      {:ok, headers} ->
+        headers
+
+      _ ->
+        []
+    end
+  end
+
+  defp block_headers(to_block, from_block) do
+    to_block..from_block
+    |> Task.async_stream(&block_header/1,
+      max_concurrency: System.schedulers_online() * 2,
+      ordered: false,
+      timeout: 20_000,
+      on_timeout: :kill_task
+    )
+    |> Enum.flat_map(fn
+      {:ok, {:ok, header}} -> [header]
+      _ -> []
+    end)
+    |> Enum.reverse()
   end
 
   # Verbosity 1 already carries the hash; verbosity 2 pulled every transaction

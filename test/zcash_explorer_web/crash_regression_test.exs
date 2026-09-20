@@ -107,6 +107,47 @@ defmodule ZcashExplorerWeb.CrashRegressionTest do
     end
   end
 
+  describe "Cachex.fetch stampede protection for /blocks" do
+    setup do
+      {:ok, _} = Application.ensure_all_started(:cachex)
+      name = :"blocks_cache_#{System.unique_integer([:positive])}"
+      {:ok, _pid} = Cachex.start_link(name)
+      %{cache: name}
+    end
+
+    test "concurrent callers compute the value once", %{cache: c} do
+      me = self()
+
+      run = fn ->
+        Cachex.fetch(c, "k", fn ->
+          send(me, :computed)
+          Process.sleep(50)
+          {:commit, [:header]}
+        end)
+      end
+
+      results = 1..10 |> Enum.map(fn _ -> Task.async(run) end) |> Enum.map(&Task.await/1)
+
+      assert Enum.all?(results, fn {tag, v} -> tag in [:ok, :commit] and v == [:header] end)
+      # One :computed message: the courier collapses the other nine.
+      assert_received :computed
+      refute_received :computed
+    end
+
+    test "the ttl is set on commit and does not slide on later hits", %{cache: c} do
+      {:commit, _} = Cachex.fetch(c, "k", fn -> {:commit, [:header]} end)
+      Cachex.expire(c, "k", :timer.seconds(15))
+      {:ok, first} = Cachex.ttl(c, "k")
+
+      Process.sleep(30)
+      # A hit returns {:ok, _}, which is the branch that must NOT re-arm the ttl.
+      assert {:ok, [:header]} = Cachex.fetch(c, "k", fn -> {:commit, [:other]} end)
+      {:ok, second} = Cachex.ttl(c, "k")
+
+      assert second < first, "el ttl se deslizo: #{second} >= #{first}"
+    end
+  end
+
   describe "search address predicates" do
     test "accepts zebrad's address_type key" do
       zebrad = {:ok, %{"isvalid" => true, "address_type" => "sapling"}}
