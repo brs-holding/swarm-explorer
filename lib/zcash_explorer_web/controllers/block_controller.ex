@@ -51,7 +51,16 @@ defmodule ZcashExplorerWeb.BlockController do
 
     blocks_data =
       to_block..from_block
-      |> Task.async_stream(&block_header/1, max_concurrency: max_concurrency, ordered: false)
+      # Every task funnels into the single Zcashex GenServer, so concurrency here
+      # only queues work: 21 blocks routinely exceed async_stream's 5s default.
+      # on_timeout: :kill_task is what lets the clause below drop a slow block
+      # instead of exiting the request -- :exit, the default, kills the caller.
+      |> Task.async_stream(&block_header/1,
+        max_concurrency: max_concurrency,
+        ordered: false,
+        timeout: 20_000,
+        on_timeout: :kill_task
+      )
       |> Enum.flat_map(fn
         {:ok, {:ok, header}} -> [header]
         _ -> []
@@ -77,12 +86,19 @@ defmodule ZcashExplorerWeb.BlockController do
     end
   end
 
+  # A Zcashex call that exceeds its GenServer timeout exits rather than
+  # returning {:error, _}, so the case alone never saw it. The metrics warmer
+  # refreshes this every 15s, which beats 404ing the block list over a blip.
   defp tip_height do
     case Zcashex.getblockcount() do
       {:ok, n} -> n
-      _ -> nil
+      _ -> cached_tip()
     end
+  catch
+    :exit, _ -> cached_tip()
   end
+
+  defp cached_tip, do: ZcashExplorer.Cache.field("metrics", "blocks")
 
   defp parse_int(nil), do: nil
 
