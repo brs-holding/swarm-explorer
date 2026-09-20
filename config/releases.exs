@@ -90,11 +90,14 @@ config :zcash_explorer, ZcashExplorerWeb.Endpoint,
     transport_options: [socket_opts: [:inet6], compress: true]
   ],
   secret_key_base: secret_key_base,
-  # add all the domain names that will be routed to this application ( including TOR Onion Service)
+  # Derived from EXPLORER_HOSTNAME so the allowlist follows the domain this
+  # instance is actually served under. The hardcoded list named
+  # zcashblockexplorer.com and testnet.zcashblockexplorer.com, neither of which
+  # routes here any more; it only kept working because nginx blanks the Origin
+  # header (`proxy_set_header Origin '';`), which skips the check entirely.
   check_origin: [
+    "//" <> explorer_hostname,
     "http://127.0.0.1:4000",
-    "//zcashblockexplorer.com",
-    "//testnet.zcashblockexplorer.com",
     "//" <> be_onion_address
   ],
   be_onion_address: be_onion_address
