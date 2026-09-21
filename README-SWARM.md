@@ -78,7 +78,7 @@ Everything is configuration. Nothing in this list is hard-coded in the source.
 | --- | --- | --- | --- |
 | `SWARM_PROJECT_NAME` | no | `SWARM` | Shown in page titles and headings. |
 | `SWARM_NETWORK_NAME` | no | `SwarmTestnet` | Shown next to the logo and in `/healthz`. |
-| `SWARM_TICKER` | no | `SWARM` | Appended to every amount. |
+| `SWARM_TICKER` | no | `SWM` | Coin ticker appended to every public amount. The project is SWARM; the coin is SWM. |
 | `SWARM_MAX_SUPPLY` | no | `20999987.3152` | Denominator of the "supply issued" figure (`specs/ECONOMICS.md` §3). Must parse as a float, so write `21000000.0`, not `21000000`. |
 | `SWARM_HALVING_INTERVAL` | no | `1680000` | Blocks per era. The first halving lands at `interval - 1` = 1,679,999, matching upstream's `floor((height + 1) / interval)`. |
 | `SWARM_BLOCK_TARGET_SECONDS` | no | `75` | Target block spacing. Also the default for the warmer interval. |
@@ -124,6 +124,37 @@ Defaults are sized for a 2 vCPU / 4 GB server shared with the node.
 | `SWARM_WARMER_WINDOW` | no | `21` | How many recent blocks the "latest blocks" and "latest transactions" warmers refetch. |
 | `SWARM_WARMER_INTERVAL_MS` | no | `block target / 3`, i.e. 25000 | How often they do it. Upstream refetched 21 blocks plus 20 transactions every 15 s, which at 75-second blocks is about 55 RPC calls per block produced. |
 | `ERL_FLAGS` | no | unset | Extra BEAM flags. `rel/vm.args.eex` already pins `+S 2:2` because the BEAM otherwise sizes its scheduler pool from the **host's** core count, not the container's CPU quota. |
+
+---
+
+## Design
+
+The interface follows **Swarm Style Guide v2**. Three rules matter when
+changing it:
+
+1. **Colour is a claim about the data, not decoration.** Hive Orange `#FF8A1F`
+   means brand or *shielded*. Honey `#FFB020` means a mining reward. Clear Blue
+   `#6FB6FF` means *this data is public* and must never be used as a neutral
+   accent. Green `#3DD68C` means confirmed.
+2. **Never print a number the chain does not contain.** A shielded transaction
+   shows the masked glyphs; its transparent total is not what was sent. A
+   figure the node cannot supply shows an em dash, never a placeholder.
+3. **No third-party request, ever.** Sora, Manrope and JetBrains Mono are
+   bundled from npm and served from this origin. There is no analytics, no
+   tracker, no external script or stylesheet, and no browser storage beyond the
+   session cookie Phoenix needs.
+
+Two figures deserve their definitions:
+
+* **Shielded share** (per block, in the block list) is the share of that
+  block's **non-coinbase** transactions carrying at least one shielded
+  component — a Sapling spend or output, an Orchard action, an Ironwood action
+  or a legacy joinsplit. The coinbase is excluded because it is produced by the
+  protocol rather than by a user's privacy choice. A block holding nothing but
+  its coinbase has no honest share and shows an em dash.
+* **Network Sol/s** is `getnetworksolps`, in Equihash *solutions* per second.
+  On a minimum-difficulty chain Zebra has been observed returning 0; that is
+  "not measurable yet", not a rate, so it renders as an em dash.
 
 ---
 

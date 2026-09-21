@@ -1,103 +1,66 @@
 defmodule ZcashExplorerWeb.RecentTransactionsLive do
+  @moduledoc """
+  The "Latest transactions" list, with the style guide's state pills.
+
+  SWARM change: an amount is only printed when it is genuinely public. A
+  shielded transaction shows the masked glyphs, because the chain does not
+  contain a public amount for it and printing its transparent total would say
+  something untrue about what was sent.
+  """
   use ZcashExplorerWeb, :live_view
-  import Phoenix.LiveView.Helpers
+  alias ZcashExplorer.Swarm
+
+  @refresh 5_000
+
   @impl true
   def render(assigns) do
     ~L"""
-    <div class="shadow overflow-hidden border-gray-200 rounded-lg overflow-x-auto">
-    <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-    <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-    <tr>
-                <th scope="col" class="px-6 py-3">Transaction ID</th>
-                <th scope="col" class="px-6 py-3">Block#</th>
-                <th scope="col" class="px-6 py-3">Time (UTC )</th>
-                <th scope="col" class="px-6 py-3">Public Output ( <%= @ticker %>  )</th>
-                <th scope="col" class="px-4 py-3">TX Type</th>
-            </tr>
-            </thead>
-    <tbody>
-      <%= for tx <- @transaction_cache do %>
-      <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-      <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-indigo-600 hover:text-indigo-500 dark:text-white dark:hover:text-white">
-                <a href='/transactions/<%= tx["txid"] %>'>
-                  <%= tx["txid"] %>
-                </a>
-              </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-              <a href='/blocks/<%= tx["block_height"] %>'>
-                <%= tx["block_height"] %>
-              </a>
-            </td>
+    <div class="sw-card overflow-hidden">
+      <div class="flex items-center justify-between px-5 py-4" style="border-bottom:1px solid var(--sw-hairline);">
+        <h3 class="font-display text-sm font-semibold">Latest transactions</h3>
+        <span class="sw-mono text-[10.5px] tracking-[.14em]" style="color:var(--sw-honey);">
+          <span class="sw-live-dot inline-block align-middle mr-2"></span>LIVE
+        </span>
+      </div>
 
-              <td class="px-6 py-4 whitespace-nowrap">
-                <%= tx["time"] %>
-              </td>
-             <td class="px-6 py-4 whitespace-nowrap">
-                <%= tx["tx_out_total"] %>
-             </td>
-             <td class="px-6 py-4 whitespace-nowrap">
-                  <%= if tx["type"] == "coinbase" do %>
-                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-s font-medium bg-yellow-400 text-gray-900 capitalize">
-                    💰 Coinbase
-                  </span>
-                  <% end %>
-                  <%= if tx["type"] == "shielded" do %>
-                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-s font-medium bg-green-400 text-gray-900 capitalize">
-                    🛡 Shielded
-                  </span>
-                  <% end %>
-                  <%= if tx["type"] == "transparent" do %>
-                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-s font-medium bg-red-200 text-gray-900 capitalize">
-                    🔍 Public
-                  </span>
-                  <% end %>
-                  <%= if tx["type"] == "shielding" do %>
-                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-s font-medium bg-red-50 text-gray-900 capitalize">
-                    Shielding ( t-z )
-                  </span>
-                  <% end %>
-                  <%= if tx["type"] == "deshielding" do %>
-                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-s font-medium bg-red-50 text-gray-900 capitalize">
-                    Deshielding ( z-t )
-                  </span>
-                  <% end %>
-                  <%= if tx["type"] == "mixed" do %>
-                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-s font-medium bg-gray-200 text-gray-900 capitalize">
-                    Mixed
-                  </span>
-                  <% end %>
-                  <%= if  tx["type"] == "unknown" do %>
-                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-s font-medium bg-gray-200 text-gray-900 capitalize">
-                    Unknown
-                  </span>
-                  <% end %>
-              </td>
-            </tr>
-            <% end %>
-    </tbody>
-    </table>
+      <%= if @transaction_cache == [] do %>
+        <p class="px-5 py-6 text-sm" style="color:var(--sw-mid);">Waiting for the node&hellip;</p>
+      <% end %>
+
+      <%= for tx <- @transaction_cache do %>
+        <a href="<%= "/transactions/#{tx["txid"]}" %>"
+           class="flex items-center gap-3 px-5 py-3 no-underline"
+           style="border-bottom:1px solid var(--sw-hairline-soft);">
+          <span class="flex-1 min-w-0">
+            <span class="block sw-mono text-[11.5px] truncate" style="color:var(--sw-text2);"><%= tx["txid"] %></span>
+            <span class="block sw-mono text-[10.5px]" style="color:var(--sw-dim);">
+              block #<%= tx["block_height"] %> &middot; <%= tx["time"] %>
+            </span>
+          </span>
+
+          <span class="sw-mono text-[11.5px] shrink-0 <%= if tx["masked"], do: "sw-masked" %>"
+                style="<%= unless tx["masked"], do: "color:var(--sw-clear-lt);" %>">
+            <%= tx["amount"] %><%= unless tx["masked"] do %> <%= @ticker %><% end %>
+          </span>
+
+          <span class="<%= tx["pill_class"] %> shrink-0"><%= tx["state"] %></span>
+        </a>
+      <% end %>
+    </div>
     """
   end
 
   @impl true
   def mount(_params, _session, socket) do
-    if connected?(socket), do: Process.send_after(self(), :update, 1000)
-
-    case ZcashExplorer.Cache.fetch("transaction_cache") do
-      {:ok, info} ->
-        {:ok, assign(socket, transaction_cache: info, ticker: ZcashExplorer.Swarm.ticker())}
-
-      {:error, _reason} ->
-        # The template iterates this assign, so a cold cache has to fall back to
-        # an empty list; "loading..." raised Protocol.UndefinedError on /mempool.
-        {:ok, assign(socket, transaction_cache: [], ticker: ZcashExplorer.Swarm.ticker())}
-    end
+    if connected?(socket), do: Process.send_after(self(), :update, @refresh)
+    {:ok, assign(socket, transaction_cache: txs(), ticker: Swarm.ticker())}
   end
 
   @impl true
   def handle_info(:update, socket) do
-    Process.send_after(self(), :update, 1000)
-    info = ZcashExplorer.Cache.get("transaction_cache", [])
-    {:noreply, assign(socket, :transaction_cache, info)}
+    Process.send_after(self(), :update, @refresh)
+    {:noreply, assign(socket, :transaction_cache, txs())}
   end
+
+  defp txs, do: ZcashExplorer.Cache.get("transaction_cache", [])
 end

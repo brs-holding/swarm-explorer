@@ -108,12 +108,12 @@ defmodule ZcashExplorer.BlockRewardTest do
           reward_breakdown: Swarm.reward_breakdown(@subsidy)
         )
 
-      assert html =~ "Block reward"
+      assert html =~ "BLOCK REWARD"
       assert html =~ "Core Development"
       assert html =~ "Grants &amp; Ecosystem"
       assert html =~ "Community &amp; Development Reserve"
       # Amount, ticker and share of one allocation.
-      assert html =~ "0.5 SWARM"
+      assert html =~ "0.5 SWM"
       assert html =~ "8.0%"
       # Destination addresses are linked.
       assert html =~ ~s|/address/t2CoreDevelopmentFixtureAddress0001|

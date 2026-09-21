@@ -47,13 +47,23 @@ defmodule ZcashExplorer.Transactions.TransactionWarmer do
         end)
         |> Enum.reject(&is_nil/1)
         |> Enum.map(fn z ->
+          # SWARM change: the list now carries the style guide's privacy state
+          # and a display amount that is masked when the transaction has no
+          # public amount, instead of a bare transparent total for every row.
+          state = ZcashExplorerWeb.BlockView.tx_state(z)
+          {kind, amount} = ZcashExplorerWeb.BlockView.display_amount(z)
+
           %{
             "txid" => Map.get(z, :txid),
             "block_height" => Map.get(z, :height),
             "time" => ZcashExplorerWeb.BlockView.mined_time(Map.get(z, :time)),
             "tx_out_total" => ZcashExplorerWeb.BlockView.tx_out_total(z),
             "size" => Map.get(z, :size),
-            "type" => ZcashExplorerWeb.BlockView.tx_type(z)
+            "type" => ZcashExplorerWeb.BlockView.tx_type(z),
+            "state" => ZcashExplorerWeb.BlockView.tx_state_label(state),
+            "pill_class" => ZcashExplorerWeb.BlockView.tx_state_class(state),
+            "masked" => kind == :masked,
+            "amount" => amount
           }
         end)
         |> handle_result()

@@ -217,4 +217,126 @@ defmodule ZcashExplorerWeb.BlockView do
         "unknown"
     end
   end
+
+  # --------------------------------------------------------------------------
+  # SWARM additions: the privacy-aware presentation the Swarm Style Guide asks
+  # for. Every figure below is computed from what the node actually returned;
+  # none of it is a placeholder from the mockup.
+  # --------------------------------------------------------------------------
+
+  @doc """
+  The share of this block's **non-coinbase** transactions that carry at least
+  one shielded component (Sapling spends or outputs, Orchard actions, Ironwood
+  actions, or a legacy joinsplit).
+
+  Returns a float 0.0-100.0, or `nil` when the block contains nothing but its
+  coinbase, in which case there is no honest number to show and the page shows
+  an em dash. The coinbase is excluded because on this network it is produced
+  by the protocol, not by a user making a privacy choice, so counting it would
+  flatter or penalise the figure depending only on how the miner is paid.
+  """
+  def shielded_share(txs) do
+    candidates =
+      txs
+      |> List.wrap()
+      |> Enum.reject(&is_coinbase_tx?/1)
+
+    case length(candidates) do
+      0 ->
+        nil
+
+      total ->
+        shielded = Enum.count(candidates, &has_shielded_component?/1)
+
+        shielded / total * 100
+    end
+  end
+
+  @doc "`shielded_share/1` rounded for display, or an em dash."
+  def shielded_share_label(nil), do: "—"
+
+  def shielded_share_label(share) when is_number(share),
+    do: :erlang.float_to_binary(share + 0.0, [:compact, {:decimals, 1}]) <> "%"
+
+  def shielded_share_label(txs), do: txs |> shielded_share() |> shielded_share_label()
+
+  @doc "Bar width for the shielded-share indicator; an unknown share shows nothing."
+  def shielded_share_width(nil), do: 0
+  def shielded_share_width(share) when is_number(share), do: round(share)
+
+  @doc """
+  The state pill for a transaction: `:coinbase`, `:shielded` or `:revealed`.
+
+  "Revealed" is the style guide's word for a transaction whose sender,
+  recipient and amount are all public, and Clear Blue is reserved for exactly
+  that. A transaction with any shielded component counts as shielded, because
+  something in it is genuinely hidden.
+  """
+  def tx_state(tx) do
+    cond do
+      is_coinbase_tx?(tx) -> :coinbase
+      has_shielded_component?(tx) -> :shielded
+      true -> :revealed
+    end
+  end
+
+  # Defensive on every field: upstream's contains_* helpers assume the decoded
+  # struct always has a list where the RPC has one, and a nil from a trimmed or
+  # future reply must not take a page down.
+  defp has_shielded_component?(tx) do
+    list = fn key -> tx |> Map.get(key) |> List.wrap() end
+
+    length(list.(:vjoinsplit)) > 0 or
+      length(list.(:vShieldedSpend)) > 0 or
+      length(list.(:vShieldedOutput)) > 0 or
+      (Map.get(tx, :valueBalance) || 0.0) != 0.0 or
+      actions(tx, :orchard) > 0 or
+      actions(tx, :ironwood) > 0
+  end
+
+  defp actions(tx, pool) do
+    case Map.get(tx, pool) do
+      %{actions: actions} when is_list(actions) -> length(actions)
+      _ -> 0
+    end
+  end
+
+  def tx_state_label(:coinbase), do: "COINBASE"
+  def tx_state_label(:shielded), do: "SHIELDED"
+  def tx_state_label(:revealed), do: "REVEALED"
+  def tx_state_label(tx), do: tx |> tx_state() |> tx_state_label()
+
+  def tx_state_class(:coinbase), do: "sw-pill sw-pill-coinbase"
+  def tx_state_class(:shielded), do: "sw-pill sw-pill-shielded"
+  def tx_state_class(:revealed), do: "sw-pill sw-pill-revealed"
+  def tx_state_class(tx), do: tx |> tx_state() |> tx_state_class()
+
+  @doc """
+  What to print in the amount column.
+
+  A shielded transaction has no public amount, so printing a number would be a
+  lie: the transparent value of such a transaction is whatever leaked into or
+  out of the pool, not what was sent. It is masked instead, which is the style
+  guide's `⬢⬢⬢.⬢⬢`.
+  """
+  def display_amount(tx) do
+    case tx_state(tx) do
+      :shielded ->
+        {:masked, "⬢⬢⬢.⬢⬢"}
+
+      _ ->
+        # Bare number; the caller adds the ticker, so a masked row can leave it
+        # off entirely rather than printing "⬢⬢⬢.⬢⬢ SWM".
+        {:public,
+         tx |> tx_out_total_number() |> Kernel.+(0.0)
+         |> :erlang.float_to_binary([:compact, {:decimals, 8}])}
+    end
+  end
+
+  defp tx_out_total_number(tx) do
+    tx
+    |> Map.get(:vout, [])
+    |> List.wrap()
+    |> Enum.reduce(0, fn out, acc -> (Map.get(out, :value) || 0) + acc end)
+  end
 end

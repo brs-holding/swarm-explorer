@@ -1,28 +1,22 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-Compatible" content="IE=edge"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta name="color-scheme" content="dark"/>
     <%= live_title_tag assigns[:page_title] || " " %>
-    <%!-- SWARM change: upstream pulled DM Serif Display from fonts.googleapis.com,
-          which is a third-party request on every page view. Inter is bundled
-          from @fontsource (self-hosted, see assets/js/app.js); the swarm.green
-          display and mono stacks fall back to system faces. No external font,
-          script or analytics is loaded here. --%>
+    <%!-- SWARM change: upstream pulled DM Serif Display from
+          fonts.googleapis.com on every page view. Sora, Manrope and JetBrains
+          Mono are bundled from npm and served from this origin, so the page
+          makes no third-party request and sets no storage of its own. --%>
     <link rel="icon" href={"#{Routes.static_path(@conn, "/favicon.svg")}"} type="image/svg+xml"/>
     <link rel="stylesheet" href={"#{Routes.static_path(@conn, "/css/app.css")}"}/>
     <%= csrf_meta_tag() %>
     <script defer type="text/javascript" src={"#{Routes.static_path(@conn, "/js/app.js")}"}></script>
-    <script>
-      if (localStorage.getItem('color-theme') === 'light') {
-        document.documentElement.classList.remove('dark');
-      } else {
-        document.documentElement.classList.add('dark');
-      }
-    </script>
 </head>
-<body class="bg-swarm-cream dark:bg-swarm-hive">
+<body>
+<div class="sw-hex-field" aria-hidden="true"></div>
 <%= @inner_content %>
 </body>
 </html>

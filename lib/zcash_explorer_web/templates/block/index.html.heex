@@ -96,49 +96,40 @@
                 </dd>
               </div>
 
-              <%!-- SWARM addition: the four-way block reward split. The three
-                    non-miner rows come from Zebra's funding streams, relabelled
-                    from the upstream slot names (see ZcashExplorer.Swarm). --%>
+              <%!-- SWARM addition: the four-way block reward split, read from
+                    getblocksubsidy. Honey is the reward colour of the style
+                    guide; the three non-miner rows carry the SWARM labels, not
+                    Zebra's upstream slot names. --%>
               <div class="sm:col-span-2" id="block-reward">
-                <dt class="text-sm font-medium text-gray-500 dark:text-gray-300">
-                Block reward
-                </dt>
-                <dd class="mt-1">
+                <dt class="sw-key">BLOCK REWARD</dt>
+                <dd class="mt-2">
                   <%= if @reward_breakdown == [] do %>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                    <p class="text-sm" style="color:var(--sw-mid);">
                       The node reported no reward breakdown for this height.
                     </p>
                   <% else %>
-                    <table class="min-w-full text-sm">
-                      <thead>
-                        <tr class="text-left text-xs uppercase text-gray-500 dark:text-gray-400">
-                          <th scope="col" class="py-1 pr-4">Recipient</th>
-                          <th scope="col" class="py-1 pr-4">Amount</th>
-                          <th scope="col" class="py-1 pr-4">Share</th>
-                          <th scope="col" class="py-1">Destination</th>
-                        </tr>
-                      </thead>
-                      <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                        <%= for row <- @reward_breakdown do %>
-                          <tr>
-                            <td class="py-1 pr-4 text-gray-900 dark:text-gray-50"><%= row.label %></td>
-                            <td class="py-1 pr-4 tabular-nums text-gray-900 dark:text-gray-50">
-                              <%= ZcashExplorerWeb.TransactionView.format_zec(row.amount) %>
-                            </td>
-                            <td class="py-1 pr-4 tabular-nums text-gray-500 dark:text-gray-400">
+                    <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <%= for row <- @reward_breakdown do %>
+                        <div class="sw-card px-4 py-3">
+                          <div class="flex items-baseline justify-between gap-3">
+                            <span class="text-[13px] font-medium" style="color:var(--sw-text);"><%= row.label %></span>
+                            <span class="sw-mono text-[11px]" style="color:var(--sw-low);">
                               <%= :erlang.float_to_binary(row.share + 0.0, [:compact, {:decimals, 3}]) %>%
-                            </td>
-                            <td class="py-1 break-all">
-                              <%= if row.address do %>
-                                <a href={"/address/#{row.address}"} class="text-swarm-honey-ink dark:text-swarm-honey hover:underline font-mono text-xs"><%= row.address %></a>
-                              <% else %>
-                                <span class="text-gray-400 text-xs">the miner's own payout address</span>
-                              <% end %>
-                            </td>
-                          </tr>
-                        <% end %>
-                      </tbody>
-                    </table>
+                            </span>
+                          </div>
+                          <div class="sw-mono mt-1 text-[15px]" style="color:#FFB020;">
+                            <%= ZcashExplorerWeb.TransactionView.format_zec(row.amount) %>
+                          </div>
+                          <div class="mt-1 break-all">
+                            <%= if row.address do %>
+                              <a href={"/address/#{row.address}"} class="sw-mono text-[10.5px]"><%= row.address %></a>
+                            <% else %>
+                              <span class="sw-mono text-[10.5px]" style="color:var(--sw-dim);">the miner&rsquo;s own payout address</span>
+                            <% end %>
+                          </div>
+                        </div>
+                      <% end %>
+                    </div>
                   <% end %>
                 </dd>
               </div>
@@ -221,10 +212,10 @@
                   Outputs
                 </th>
                 <th scope="col" class="px-6 py-3 text-left  text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Output (<%= @ticker %>)
+                  Amount
                 </th>
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Tx Type
+                  State
                 </th>
               </tr>
             </thead>
@@ -247,45 +238,21 @@
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-50">
                   <%= length(transaction.vout) %>
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-50">
-                  <%= tx_out_total transaction %>
+                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                  <%!-- SWARM change: a shielded transaction has no public
+                        amount. Printing its transparent total would describe
+                        something other than what was sent, so it is masked. --%>
+                  <%= case ZcashExplorerWeb.BlockView.display_amount(transaction) do %>
+                    <% {:masked, glyphs} -> %>
+                      <span class="sw-masked" title="This transaction is shielded: the chain holds no public amount for it."><%= glyphs %></span>
+                    <% {:public, amount} -> %>
+                      <span class="sw-mono" style="color:var(--sw-clear-lt);"><%= amount %> <%= @ticker %></span>
+                  <% end %>
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  <%= if tx_type(transaction) == "coinbase" do %>
-                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-s font-medium bg-yellow-400 text-gray-900 capitalize">
-                    💰 Coinbase
+                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                  <span class={ZcashExplorerWeb.BlockView.tx_state_class(transaction)}>
+                    <%= ZcashExplorerWeb.BlockView.tx_state_label(transaction) %>
                   </span>
-                  <% end %>
-                  <%= if tx_type(transaction) == "shielded" do %>
-                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-s font-medium bg-green-400 text-gray-900 capitalize">
-                    🛡 Shielded
-                  </span>
-                  <% end %>
-                  <%= if tx_type(transaction) == "transparent" do %>
-                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-s font-medium bg-red-200 text-gray-900 capitalize">
-                    🔍 Public
-                  </span>
-                  <% end %>
-                  <%= if tx_type(transaction) == "shielding" do %>
-                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-s font-medium bg-red-50 text-gray-900 capitalize">
-                    Shielding ( t-z )
-                  </span>
-                  <% end %>
-                  <%= if tx_type(transaction) == "deshielding" do %>
-                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-s font-medium bg-red-50 text-gray-900 capitalize">
-                    Deshielding ( z-t )
-                  </span>
-                  <% end %>
-                  <%= if tx_type(transaction) == "mixed" do %>
-                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-s font-medium bg-gray-200 text-gray-900 capitalize">
-                    Mixed
-                  </span>
-                  <% end %>
-                  <%= if  tx_type(transaction) == "unknown" do %>
-                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-s font-medium bg-gray-200 text-gray-900 capitalize">
-                    Unknown
-                  </span>
-                  <% end %>
                 </td>
               </tr>
               <% end %>

@@ -1,12 +1,12 @@
 defmodule ZcashExplorerWeb.ShieldedPoolLive do
   @moduledoc """
-  Every shielded value pool the node reports.
+  Every value pool the node reports, as one card.
 
   SWARM change: was `OrchardPoolLive`, which showed the Orchard pool only and
   labelled it ZEC/TAZ. SwarmTestnet activates every upgrade through NU6.3 at
   height 1, so Sapling, Orchard and the NU6.3 Ironwood pool can all hold value.
-  The list comes from `getblockchaininfo`, so a pool added later shows up with
-  no code change.
+  The list comes from `getblockchaininfo`, so a pool added later appears with no
+  code change and none is invented when the node reports none.
   """
   use ZcashExplorerWeb, :live_view
   alias ZcashExplorer.Swarm
@@ -16,17 +16,23 @@ defmodule ZcashExplorerWeb.ShieldedPoolLive do
   @impl true
   def render(assigns) do
     ~L"""
-    <div class="space-y-1">
+    <div class="sw-card px-5 py-4">
+      <div class="flex items-baseline justify-between">
+        <span class="sw-key">SHIELDED VALUE POOLS</span>
+        <span class="sw-mono text-[10.5px]" style="color:var(--sw-low);">from getblockchaininfo</span>
+      </div>
+
       <%= if @pools == [] do %>
-        <p class="text-2xl font-semibold text-gray-900 dark:text-slate-100">&mdash;</p>
+        <p class="mt-3 text-sm" style="color:var(--sw-mid);">The node reports no value pools yet.</p>
       <% else %>
-        <%= for {id, value} <- @pools do %>
-          <p class="text-sm text-gray-500 dark:text-gray-400">
-            <span class="capitalize"><%= id %></span>
-            <span class="font-semibold text-gray-900 dark:text-slate-100"><%= value %></span>
-            <%= @ticker %>
-          </p>
-        <% end %>
+        <div class="mt-3 flex flex-wrap gap-2.5">
+          <%= for {id, value} <- @pools do %>
+            <span class="sw-pill sw-pill-shielded">
+              <span class="capitalize" style="letter-spacing:0;"><%= id %></span>
+              <span class="sw-mono"><%= value %> <%= @ticker %></span>
+            </span>
+          <% end %>
+        </div>
       <% end %>
     </div>
     """

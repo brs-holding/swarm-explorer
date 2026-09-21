@@ -36,6 +36,7 @@ defmodule ZcashExplorerWeb.Router do
     live "/metrics/networksolps", NetworkSolpsLive
     live "/metrics/supply", SupplyLive
     live "/metrics/halving", HalvingLive
+    live "/metrics/peers", PeersLive
     live "/index/recent_blocks", RecentBlocksLive
     live "/index/recent_transactions", RecentTransactionsLive
     live "/live/raw_mempool", RawMempoolLive

@@ -1,43 +1,26 @@
+// SWARM change: the fonts of the Swarm Style Guide v2 are bundled from npm and
+// emitted into priv/static by webpack, so the browser never requests anything
+// from a third party. Upstream linked fonts.googleapis.com from the layout.
+import "@fontsource/sora/400.css"
+import "@fontsource/sora/600.css"
+import "@fontsource/sora/700.css"
+import "@fontsource/manrope/400.css"
+import "@fontsource/manrope/500.css"
+import "@fontsource/manrope/600.css"
+import "@fontsource/jetbrains-mono/400.css"
+import "@fontsource/jetbrains-mono/500.css"
+
 import "../css/app.scss"
-import "@fontsource/inter/variable.css"
 
 import "phoenix_html"
 import 'alpinejs'
 import { Socket } from "phoenix"
 import { LiveSocket } from "phoenix_live_view"
 
-let Hooks = {}
-
-Hooks.VkContainerLog = {
-	updated() {
-		var logsDiv = document.getElementById("clogsholder")
-		logsDiv.scrollTop = logsDiv.scrollHeight
-	}
-}
-
+// SWARM change: the light/dark toggle and its localStorage entry are gone.
+// The design system is one dark theme, and the explorer now stores nothing in
+// the browser beyond the session cookie Phoenix needs.
 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
-let liveSocket = new LiveSocket("/live", Socket, { hooks: Hooks, params: { _csrf_token: csrfToken } })
+let liveSocket = new LiveSocket("/live", Socket, { params: { _csrf_token: csrfToken } })
 liveSocket.connect()
 window.liveSocket = liveSocket
-
-var themeToggleDarkIcon  = document.getElementById('theme-toggle-dark-icon');
-var themeToggleLightIcon = document.getElementById('theme-toggle-light-icon');
-
-if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-	themeToggleLightIcon.classList.remove('hidden');
-} else {
-	themeToggleDarkIcon.classList.remove('hidden');
-}
-
-document.getElementById('theme-toggle').addEventListener('click', function() {
-	themeToggleDarkIcon.classList.toggle('hidden');
-	themeToggleLightIcon.classList.toggle('hidden');
-
-	if (localStorage.getItem('color-theme') === 'light') {
-		document.documentElement.classList.add('dark');
-		localStorage.setItem('color-theme', 'dark');
-	} else {
-		document.documentElement.classList.remove('dark');
-		localStorage.setItem('color-theme', 'light');
-	}
-});

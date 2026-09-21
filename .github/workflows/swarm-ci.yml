@@ -139,7 +139,7 @@ jobs:
             -e ZEBRA_RPC_URL=http://zebra:18232 \
             -e ZEBRA_COOKIE_PATH=/zebra-cookie/.cookie \
             -e SWARM_NETWORK_NAME=SwarmTestnet \
-            -e SWARM_TICKER=SWARM \
+            -e SWARM_TICKER=SWM \
             -e SWARM_PROJECT_NAME=SWARM \
             -e SWARM_WARMER_INTERVAL_MS=3000 \
             -e SWARM_RECIPIENTS='[{"slot":"ECC","label":"Core Development","address":"t2CoreDevelopmentFixtureAddress0001","percent":8},{"slot":"MajorGrants","label":"Grants & Ecosystem","address":"t2GrantsEcosystemFixtureAddress0002","percent":4},{"slot":"ZcashFoundation","label":"Community & Development Reserve","address":"t2CommunityReserveFixtureAddress003","percent":8}]' \
@@ -164,15 +164,17 @@ jobs:
           ci/assert-http.sh "$B/healthz" '"status":"ok"' '"network":"SwarmTestnet"'
           # Home page: branding, the disclaimer, and the SWARM-only tiles.
           ci/assert-http.sh "$B/" \
-            'SWARM Explorer' \
-            'test coins have no value' \
-            'Next halving at height' \
-            'Supply issued' \
-            'Network solution rate' \
-            'Latest blocks'
+            'The hive, in the open.' \
+            'TEST COINS HAVE NO VALUE' \
+            'NEXT HALVING' \
+            'SUPPLY ISSUED' \
+            'NETWORK SOL/S' \
+            'PEERS' \
+            'Latest blocks' \
+            'Latest transactions'
           # Genesis-adjacent block and the tip.
-          ci/assert-http.sh "$B/blocks/1"       'Details for the SWARM block' 'Block reward'
-          ci/assert-http.sh "$B/blocks/$TIP"    'Details for the SWARM block' 'Block reward'
+          ci/assert-http.sh "$B/blocks/1"       'Details for the SWARM block' 'BLOCK REWARD'
+          ci/assert-http.sh "$B/blocks/$TIP"    'Details for the SWARM block' 'BLOCK REWARD' 'COINBASE'
           # A coinbase transaction.
           ci/assert-http.sh "$B/transactions/$COINBASE" "$COINBASE" 'coinbase'
           # The address every coinbase paid.

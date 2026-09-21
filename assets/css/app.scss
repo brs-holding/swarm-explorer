@@ -2,64 +2,312 @@
 @tailwind components;
 @tailwind utilities;
 
-/* SWARM change: the z.cash typography system (DM Serif Display from Google
-   Fonts + Inter) is replaced by the swarm.green stacks. Inter is bundled from
-   @fontsource, so no font is fetched from a third party. Sora and JetBrains
-   Mono degrade to the system faces named in the stack. */
+/* ==========================================================================
+   SWARM Explorer — Swarm Style Guide v2
+   ==========================================================================
+   Colour carries meaning on this site and must not be used decoratively:
+
+     Hive Orange #FF8A1F   brand, primary action, SHIELDED
+     Honey       #FFB020   mining rewards, COINBASE, highlights
+     Clear Blue  #6FB6FF   ONLY transparent / REVEALED data
+     Success     #3DD68C   confirmations
+
+   Fonts are bundled from npm (@fontsource) and served from this origin; the
+   page makes no third-party request of any kind.
+   ========================================================================== */
 
 @layer base {
   :root {
-    --honey: #F5A623;
-    --amber-deep: #E8890C;
-    --comb: #FFC94D;
-    --pollen: #FFE9A8;
-    --cream: #FFF8E7;
-    --hive-black: #0E1116;
-    --bark: #161A21;
-    --wax: #252A33;
-    --ink: #E6EDF3;
-    --ink-dim: #9AA4B2;
-    --leaf: #3FB950;
-    --honey-ink: #8A4B03;
+    --sw-void: #0A0908;
+    --sw-base: #100E0C;
+    --sw-s1: #171411;
+    --sw-s2: #1F1B17;
+    --sw-text: #F5EFE4;
+    --sw-text2: #D9D1C4;
+    --sw-mid: #A89F92;
+    --sw-dim: #7D746A;
+    --sw-low: #6B645A;
+    --sw-hive: #FF8A1F;
+    --sw-honey: #FFB020;
+    --sw-honey-lt: #FFD08A;
+    --sw-clear: #6FB6FF;
+    --sw-clear-lt: #BFDDFF;
+    --sw-success: #3DD68C;
+    --sw-hairline: rgba(255, 255, 255, 0.07);
+    --sw-hairline-soft: rgba(255, 255, 255, 0.05);
   }
 
-  h1 {
-    @apply font-display;
-    font-weight: 700;
-    line-height: 1.08;
+  html { background: var(--sw-void); }
+
+  body {
+    background: var(--sw-void);
+    color: var(--sw-text);
+    font-family: 'Manrope', system-ui, sans-serif;
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: 'Sora', system-ui, sans-serif;
     letter-spacing: -0.02em;
   }
 
-  h2 {
-    @apply font-display;
-    font-weight: 700;
-    line-height: 1.15;
-    letter-spacing: -0.015em;
+  a { color: var(--sw-hive); }
+  a:hover { color: var(--sw-honey); }
+
+  ::selection { background: var(--sw-hive); color: #1A0F02; }
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-thumb { background: #2a251f; border-radius: 10px; }
+
+  :focus-visible {
+    outline: 2px solid var(--sw-hive);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+@layer components {
+  /* The faint hexagon field behind everything, fading out down the page. */
+  .sw-hex-field {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: .5;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='64' viewBox='0 0 56 64'%3E%3Cpath d='M28 2 L54 17 L54 47 L28 62 L2 47 L2 17 Z' fill='none' stroke='rgba(255,255,255,0.04)' stroke-width='1'/%3E%3C/svg%3E");
+    -webkit-mask-image: radial-gradient(circle at 50% 0%, #000, transparent 60%);
+    mask-image: radial-gradient(circle at 50% 0%, #000, transparent 60%);
   }
 
-  h3, h4, h5, h6 {
-    @apply font-sans;
-    font-weight: 700;
-    line-height: 1.25;
+  .sw-card {
+    border: 1px solid rgba(255, 255, 255, .08);
+    border-radius: 14px;
+    background: var(--sw-base);
   }
 
-  a {
-    @apply transition-colors;
+  /* A metric card: the flowing hairline along its top edge is the house style. */
+  .sw-metric {
+    position: relative;
+    overflow: hidden;
+    padding: 18px;
+    border: 1px solid rgba(255, 255, 255, .08);
+    border-radius: 14px;
+    background: var(--sw-base);
   }
 
-  /* Upstream's stat cards leaned on indigo utility classes in many templates;
-     map them once here rather than editing every call site. */
-  .text-indigo-600 {
-    @apply text-swarm-honey-ink;
-  }
-  .dark .text-indigo-600 {
-    @apply text-swarm-honey;
-  }
-  .hover\:text-indigo-500:hover {
-    @apply text-swarm-amber;
+  .sw-metric-flow {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 2px;
+    width: 100%;
+    background-size: 200% 100%;
+    animation: sw-flow 3.4s linear infinite;
   }
 
-  code, pre, .font-mono {
-    @apply font-mono;
+  .sw-key {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: .18em;
+    color: var(--sw-low);
+    text-transform: uppercase;
   }
+
+  .sw-value {
+    font-family: 'Sora', system-ui, sans-serif;
+    font-weight: 600;
+    font-size: 22px;
+    margin-top: 8px;
+    letter-spacing: -0.01em;
+    color: var(--sw-text);
+  }
+
+  .sw-note { font-size: 11.5px; margin-top: 4px; color: var(--sw-mid); }
+
+  .sw-mono {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+  }
+
+  /* State pills. Each colour is a claim about the data, not decoration. */
+  .sw-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: .12em;
+    white-space: nowrap;
+  }
+
+  .sw-pill-shielded  { color: var(--sw-honey-lt); background: rgba(255,138,31,.08); border-color: rgba(255,138,31,.30); }
+  .sw-pill-revealed  { color: var(--sw-clear-lt); background: rgba(111,182,255,.08); border-color: rgba(111,182,255,.30); }
+  .sw-pill-coinbase  { color: #F4DCA0; background: rgba(255,176,32,.08); border-color: rgba(255,176,32,.30); }
+  .sw-pill-confirmed { color: #BFEAD4; background: rgba(61,214,140,.08); border-color: rgba(61,214,140,.30); }
+  .sw-pill-neutral   { color: var(--sw-mid); background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.12); }
+
+  .sw-live-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--sw-honey);
+    box-shadow: 0 0 8px var(--sw-honey);
+    animation: sw-pulse 1.6s ease-in-out infinite;
+  }
+
+  /* A shielded amount is never rendered as a number, because the chain does
+     not contain one. The glyphs stand for "there is a value here and it is
+     not public". */
+  .sw-masked {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    letter-spacing: .15em;
+    color: var(--sw-hive);
+  }
+
+  .sw-shield-bar {
+    height: 5px;
+    border-radius: 3px;
+    background: rgba(111, 182, 255, .35);
+    overflow: hidden;
+  }
+
+  .sw-shield-bar > span {
+    display: block;
+    height: 100%;
+    background: var(--sw-hive);
+    box-shadow: 0 0 6px rgba(255, 138, 31, .5);
+  }
+
+  .sw-btn {
+    font-family: 'Sora', system-ui, sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    padding: 10px 18px;
+    border-radius: 9px;
+    border: 1px solid var(--sw-hive);
+    background: var(--sw-hive);
+    color: #1A0F02;
+    cursor: pointer;
+  }
+
+  .sw-btn:hover { background: var(--sw-honey); border-color: var(--sw-honey); }
+
+  .sw-search {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 8px 8px 18px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, .12);
+    background: var(--sw-base);
+  }
+
+  .sw-search:focus-within { border-color: var(--sw-hive); }
+
+  .sw-search input {
+    flex: 1;
+    min-width: 0;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 13px;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--sw-text);
+  }
+
+  .sw-search input::placeholder { color: var(--sw-dim); }
+
+  .sw-table { width: 100%; font-size: 13px; text-align: left; }
+  .sw-table thead th {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--sw-low);
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--sw-hairline);
+  }
+  .sw-table tbody td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--sw-hairline-soft);
+    color: var(--sw-text2);
+    vertical-align: top;
+  }
+  .sw-table tbody tr:hover { background: rgba(255, 255, 255, .03); }
+}
+
+@keyframes sw-flow {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes sw-pulse {
+  0%, 100% { opacity: .45; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; }
+}
+
+/* --------------------------------------------------------------------------
+   Compatibility layer.
+   Upstream's templates are covered in light-mode Tailwind utilities
+   (bg-white, text-gray-900, shadow, divide-gray-200 …) in hundreds of places.
+   Rewriting every one of them would be a diff nobody could review, so the
+   utilities are remapped once, here, onto the Swarm Style Guide surfaces. New
+   markup uses the .sw-* components above instead.
+   -------------------------------------------------------------------------- */
+@layer utilities {
+  /* Attribute selectors, so no Tailwind class name has to be escaped and the
+     mapping does not depend on how the `dark:` variant is compiled. */
+  [class~="bg-white"], [class~="bg-gray-50"],
+  [class~="dark:bg-gray-800"], [class~="dark:bg-gray-700"],
+  [class~="dark:bg-slate-800"], [class~="dark:bg-gray-400"] {
+    background-color: var(--sw-base) !important;
+  }
+
+  [class~="shadow"], [class~="shadow-sm"], [class~="shadow-lg"] {
+    box-shadow: none !important;
+  }
+
+  [class~="text-gray-900"], [class~="dark:text-white"],
+  [class~="dark:text-gray-50"], [class~="dark:text-slate-100"],
+  [class~="dark:text-gray-200"], [class~="dark:bg-gray-200"],
+  [class~="dark:text-stone-300"], [class~="text-midnight-500"] {
+    color: var(--sw-text) !important;
+  }
+
+  [class~="text-gray-700"], [class~="text-gray-500"], [class~="text-gray-400"],
+  [class~="dark:text-gray-300"], [class~="dark:text-gray-400"],
+  [class~="text-gun-powder-500"], [class~="dark:text-100"] {
+    color: var(--sw-mid) !important;
+  }
+
+  [class~="text-indigo-600"], [class~="dark:text-indigo-200"],
+  [class~="dark:text-indigo-300"] {
+    color: var(--sw-hive) !important;
+  }
+
+  [class~="hover:text-indigo-500"]:hover, [class~="hover:text-indigo-400"]:hover,
+  [class~="dark:hover:text-white"]:hover {
+    color: var(--sw-honey) !important;
+  }
+
+  [class~="border-gray-200"], [class~="dark:border-gray-700"],
+  [class~="divide-gray-200"] > :not([hidden]) ~ :not([hidden]),
+  [class~="dark:divide-gray-900"] > :not([hidden]) ~ :not([hidden]),
+  [class~="divide-gray-600"] > :not([hidden]) ~ :not([hidden]) {
+    border-color: var(--sw-hairline) !important;
+  }
+
+  [class~="hover:bg-gray-50"]:hover, [class~="dark:hover:bg-gray-700"]:hover,
+  [class~="dark:hover:bg-gray-600"]:hover {
+    background-color: rgba(255, 255, 255, .03) !important;
+  }
+
+  [class~="rounded-lg"] { border-radius: 14px; }
+
+  /* Amounts, hashes, heights: always mono, wherever they appear. */
+  [class~="tabular-nums"] { font-family: 'JetBrains Mono', ui-monospace, monospace; }
 }

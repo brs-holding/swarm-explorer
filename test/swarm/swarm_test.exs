@@ -8,7 +8,7 @@ defmodule ZcashExplorer.SwarmTest do
   alias ZcashExplorer.Swarm
 
   test "identity comes from configuration" do
-    assert Swarm.ticker() == "SWARM"
+    assert Swarm.ticker() == "SWM"
     assert Swarm.network_name() == "SwarmTestnet"
     assert Swarm.block_target_seconds() == 75
   end

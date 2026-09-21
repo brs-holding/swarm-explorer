@@ -91,7 +91,7 @@ if config_env() == :prod do
   config :zcash_explorer, ZcashExplorer.Swarm,
     project_name: System.get_env("SWARM_PROJECT_NAME", "SWARM"),
     network_name: System.get_env("SWARM_NETWORK_NAME", "SwarmTestnet"),
-    ticker: System.get_env("SWARM_TICKER", "SWARM"),
+    ticker: System.get_env("SWARM_TICKER", "SWM"),
     max_supply: String.to_float(System.get_env("SWARM_MAX_SUPPLY") || "20999987.3152"),
     halving_interval: String.to_integer(System.get_env("SWARM_HALVING_INTERVAL") || "1680000"),
     block_target_seconds:

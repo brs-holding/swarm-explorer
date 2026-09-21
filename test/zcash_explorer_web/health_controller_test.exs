@@ -11,7 +11,7 @@ defmodule ZcashExplorerWeb.HealthTest do
 
     assert body["status"] == "ok"
     assert body["network"] == "SwarmTestnet"
-    assert body["ticker"] == "SWARM"
+    assert body["ticker"] == "SWM"
     # No warmer has run in the test environment, so readiness is honest.
     assert body["node"] == "unreachable"
   end

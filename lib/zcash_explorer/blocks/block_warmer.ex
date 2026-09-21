@@ -42,7 +42,10 @@ defmodule ZcashExplorer.Blocks.BlockWarmer do
             "hash" => block_struct.hash,
             "time" => ZcashExplorerWeb.BlockView.mined_time(block_struct.time),
             "tx_count" => ZcashExplorerWeb.BlockView.transaction_count(block_struct.tx),
-            "output_total" => ZcashExplorerWeb.BlockView.output_total(block_struct.tx)
+            "output_total" => ZcashExplorerWeb.BlockView.output_total(block_struct.tx),
+            # SWARM addition: computed from this block's own transactions, not
+            # a placeholder. nil when the block holds nothing but its coinbase.
+            "shielded_share" => ZcashExplorerWeb.BlockView.shielded_share(block_struct.tx)
           }
         end)
         |> Enum.sort(&(&1["height"] >= &2["height"]))

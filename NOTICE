@@ -93,14 +93,39 @@ explaining the reason at the point of the change.
      supervision tree and nothing queried it, but its presence meant the test
      suite could not run without a Postgres database.
 
-7. Branding and privacy
+7. Branding, design system and privacy
    - Nighthawk Apps branding, the @ZcashExplorer link, the mainnet/testnet
      cross-links and the Zcash logo were replaced with SWARM's own.
-   - The Google Fonts stylesheet link was removed. Inter is self-hosted from
-     @fontsource; the display and monospace stacks fall back to system faces.
-     No analytics, trackers or third-party scripts are loaded.
-   - The Tailwind palette was replaced with the swarm.green design tokens.
-   - A footer states "SWARM testnet - test coins have no value" and the
+   - The interface follows the Swarm Style Guide v2: warm black #0A0908 with a
+     faint hexagon field, surfaces #100E0C / #171411, Hive Orange #FF8A1F for
+     brand and SHIELDED state, honey #FFB020 for COINBASE and rewards, Clear
+     Blue #6FB6FF reserved strictly for transparent ("REVEALED") data, green
+     #3DD68C for confirmations. The light theme and its localStorage toggle
+     were removed; the explorer now stores nothing in the browser beyond the
+     session cookie Phoenix needs.
+   - The Google Fonts stylesheet link was removed. Sora, Manrope and JetBrains
+     Mono are bundled from npm (@fontsource) and served from this origin, so
+     the page makes no third-party request of any kind. No analytics, no
+     trackers, no third-party scripts.
+   - New: a hero with the search box, eight metric cards with the flowing top
+     edge, a "Latest blocks" list with a LIVE pill and a per-block shielded
+     share, a "Latest transactions" list and a block transaction list with
+     SHIELDED / REVEALED / COINBASE state pills.
+   - Shielded amounts render as the masked glyphs and never as a number: the
+     chain holds no public amount for such a transaction, and printing its
+     transparent total would describe something other than what was sent.
+   - The per-block shielded share is computed from the block's own non-coinbase
+     transactions (BlockView.shielded_share/1) and is nil, shown as an em dash,
+     for a block that holds nothing but its coinbase.
+   - Figures the node cannot supply are em dashes, never placeholders. In
+     particular getnetworksolps returns 0 on a minimum-difficulty chain, so a
+     non-positive reading shows an em dash; the card is labelled Sol/s because
+     Equihash is measured in solutions, never in hashes per second.
+   - The design mockup's "NODES / countries" card was not implemented. This
+     explorer talks to one node and cannot see the size of the network, so the
+     card shows the peer count of that node, labelled "peers of this node".
+   - The coin ticker is SWM. The project is SWARM.
+   - A footer states "SWARM TESTNET - TEST COINS HAVE NO VALUE" and the
      non-affiliation above.
    - check_origin and the endpoint URL are derived from EXPLORER_HOSTNAME.
 

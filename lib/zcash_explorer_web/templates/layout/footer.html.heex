@@ -1,44 +1,23 @@
-<footer class="bg-swarm-cream dark:bg-swarm-hive border-t border-swarm-honey/10">
-  <div class="max-w-7xl mx-auto py-10 px-4 overflow-hidden sm:px-6 lg:px-8">
-    <p class="text-center text-sm font-semibold text-swarm-honey-ink dark:text-swarm-honey">
-      <%= @project_name %> testnet &mdash; test coins have no value
+<footer class="mt-auto px-6 py-10 md:px-10" style="border-top:1px solid var(--sw-hairline);">
+  <div class="mx-auto max-w-[1240px]">
+    <p class="text-center sw-mono text-[11px] tracking-[.14em]" style="color:var(--sw-honey);">
+      <%= @project_name %> TESTNET &mdash; TEST COINS HAVE NO VALUE
     </p>
 
-    <nav class="mt-4 -mx-5 -my-2 flex flex-wrap justify-center" aria-label="Footer">
-      <div class="px-5 py-2">
-        <a href="https://swarm.green" rel="noreferrer" class="text-sm text-gray-500 dark:text-gray-400 hover:text-swarm-honey transition-colors">
-          swarm.green
-        </a>
-      </div>
-      <div class="px-5 py-2">
-        <a href="https://github.com/brs-holding" rel="noreferrer" class="text-sm text-gray-500 dark:text-gray-400 hover:text-swarm-honey transition-colors">
-          Source
-        </a>
-      </div>
-      <div class="px-5 py-2">
-        <a href="https://x.com/swarm_coin" rel="noreferrer" class="text-sm text-gray-500 dark:text-gray-400 hover:text-swarm-honey transition-colors">
-          @swarm_coin
-        </a>
-      </div>
-      <div class="px-5 py-2">
-        <a href="mailto:swarmofficial@atomicmail.io" class="text-sm text-gray-500 dark:text-gray-400 hover:text-swarm-honey transition-colors">
-          swarmofficial@atomicmail.io
-        </a>
-      </div>
-      <div class="px-5 py-2">
-        <a href="/privacy.html" class="text-sm text-gray-500 dark:text-gray-400 hover:text-swarm-honey transition-colors">
-          Privacy
-        </a>
-      </div>
+    <nav class="mt-5 flex flex-wrap justify-center gap-x-7 gap-y-2 text-[13px]" aria-label="Footer">
+      <a href="https://swarm.green" rel="noreferrer" style="color:var(--sw-mid);">swarm.green</a>
+      <a href="https://github.com/brs-holding" rel="noreferrer" style="color:var(--sw-mid);">Source</a>
+      <a href="https://x.com/swarm_coin" rel="noreferrer" style="color:var(--sw-mid);">@swarm_coin</a>
+      <a href="mailto:swarmofficial@atomicmail.io" style="color:var(--sw-mid);">swarmofficial@atomicmail.io</a>
+      <a href="/privacy.html" style="color:var(--sw-mid);">Privacy</a>
     </nav>
 
-    <p class="mt-6 text-center text-xs text-gray-500 dark:text-gray-400 max-w-3xl mx-auto">
+    <p class="mx-auto mt-6 max-w-3xl text-center text-[12px] leading-relaxed" style="color:var(--sw-low);">
       This explorer serves the private <%= @network_name %> network only.
       <%= @project_name %> is not affiliated with, endorsed by or connected to the Electric Coin Company,
       the Zcash Foundation, Zcash Community Grants, any other Zcash project, or Nighthawk Apps.
-      It is a fork of the Apache-2.0 licensed Zcash block explorer; see the NOTICE file in the source
-      repository for the list of changes.
-      No analytics, no trackers, no third-party scripts or fonts.
+      It is a fork of the Apache-2.0 licensed Zcash block explorer; the NOTICE file in the source
+      repository lists every change. No analytics, no trackers, no third-party scripts or fonts.
     </p>
   </div>
 </footer>

@@ -58,8 +58,8 @@ defmodule ZcashExplorer.Swarm do
   @doc "Display name of the network, e.g. \"SwarmTestnet\"."
   def network_name, do: config(:network_name, "SwarmTestnet")
 
-  @doc "Ticker used for every amount rendered, e.g. \"SWARM\"."
-  def ticker, do: config(:ticker, "SWARM")
+  @doc "Coin ticker for every public amount. The project is SWARM; the coin is SWM."
+  def ticker, do: config(:ticker, "SWM")
 
   @doc "Short name of the project, used in titles."
   def project_name, do: config(:project_name, "SWARM")

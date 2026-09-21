@@ -1,5 +1,7 @@
-<%= render ZcashExplorerWeb.LayoutView, "header.html", assigns %>
-<div class={bg_class(assigns)}>
-  <%= @inner_content %>
+<div class="relative z-10 min-h-screen flex flex-col">
+  <%= render ZcashExplorerWeb.LayoutView, "header.html", assigns %>
+  <div class="flex-1">
+    <%= @inner_content %>
+  </div>
+  <%= render ZcashExplorerWeb.LayoutView, "footer.html", assigns %>
 </div>
-<%= render ZcashExplorerWeb.LayoutView, "footer.html", assigns %>
