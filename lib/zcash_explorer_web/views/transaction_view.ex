@@ -19,11 +19,11 @@ defmodule ZcashExplorerWeb.TransactionView do
     ""
   end
 
+  # SWARM change: the ticker used to be ZEC or TAZ depending on a "mainnet" /
+  # "testnet" setting. It is now whatever SWARM_TICKER says, default "SWARM".
   def format_zec(value) when value != nil do
-    zcash_network = Application.get_env(:zcash_explorer, Zcashex)[:zcash_network]
-    currency = if zcash_network == "mainnet", do: "ZEC", else: "TAZ"
     float_value = (value + 0.0) |> :erlang.float_to_binary([:compact, {:decimals, 10}])
-    float_value <> " " <> currency
+    float_value <> " " <> ZcashExplorer.Swarm.ticker()
   end
 
   def orchard_actions(tx) do

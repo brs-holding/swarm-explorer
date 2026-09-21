@@ -1,4 +1,5 @@
 defmodule ZcashExplorer.Mempool.MempoolWarmer do
+  alias ZcashExplorer.Rpc
   use Cachex.Warmer
   require Logger
 
@@ -12,7 +13,7 @@ defmodule ZcashExplorer.Mempool.MempoolWarmer do
   Executes this cache warmer.
   """
   def execute(_state) do
-    Zcashex.getrawmempool(true) |> handle_result()
+    Rpc.getrawmempool(true) |> handle_result()
   end
 
   # ignores the warmer result in case of error

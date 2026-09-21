@@ -1,0 +1,27 @@
+{
+  "_comment": [
+    "Recorded shape of Zebra 6.3.0's getblock <height> 1 reply, trimmed to the",
+    "fields the block page reads. Field names are upstream's",
+    "(zebra-rpc/src/methods/types/get_block.rs at tag v6.3.0). Hashes, the",
+    "merkle root and the solution are placeholders: this fixture exists to fix",
+    "the SHAPE of the reply for the reward-breakdown rendering test, not to",
+    "assert any consensus value."
+  ],
+  "hash": "0000091d0ff0a39a8b0aa5a02f57b23e05b46bf8e1a2f7e00000000000000001",
+  "confirmations": 12,
+  "height": 42,
+  "version": 4,
+  "merkleroot": "8ba1b45a1c2b3d4e5f60718293a4b5c6d7e8f9012a3b4c5d6e7f80910a2b3c4d",
+  "blockcommitments": "0000000000000000000000000000000000000000000000000000000000000000",
+  "finalsaplingroot": "0000000000000000000000000000000000000000000000000000000000000000",
+  "tx": ["7a1f0c9b8e2d4a6f5c3b1e0d9f8a7c6b5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f00"],
+  "time": 1800000000,
+  "nonce": "0000000000000000000000000000000000000000000000000000000000000017",
+  "solution": "00b2d3e4",
+  "bits": "2007ffff",
+  "difficulty": 1.0,
+  "chainwork": "0000000000000000000000000000000000000000000000000000000000200200",
+  "size": 1987,
+  "previousblockhash": "00000ab1c2d3e4f50617283940a5b6c7d8e9f0a1b2c3d4e5f60718293a4b5c6d",
+  "nextblockhash": "00000fedcba9876543210fedcba9876543210fedcba9876543210fedcba98765"
+}

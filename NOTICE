@@ -1,0 +1,119 @@
+SWARM Explorer
+Copyright 2026 brs-holding
+
+This product includes software developed as the Zcash block explorer.
+
+Original work:
+  Copyright Nighthawk Apps and contributors
+  Copyright the Electric Coin Company / zcash contributors
+  Licensed under the Apache License, Version 2.0 (see LICENSE)
+
+Lineage of this fork:
+  nighthawk-apps/zcash-explorer -> zcash/zcash-explorer
+    -> matiasurbieta/zcash-explorer -> brs-holding/swarm-explorer
+
+  Forked at matiasurbieta/zcash-explorer commit
+  4ee671d68f703bafda2b004940dd1df49f9a0cc0 ("Cache the block listing so
+  /blocks stops timing out").
+
+This product also uses, unmodified and as a dependency:
+  zcashex (https://github.com/matiasurbieta/zcashex), Apache-2.0, for its
+  Block/Transaction/VInTX decoders.
+
+SWARM is not affiliated with, endorsed by or connected to the Electric Coin
+Company, the Zcash Foundation, Zcash Community Grants, any other Zcash
+project, or Nighthawk Apps.
+
+--------------------------------------------------------------------------
+CHANGES (Apache-2.0 section 4(b): prominent notices stating what changed)
+--------------------------------------------------------------------------
+
+All changes below were made by brs-holding for the SWARM testnet. Every
+modified source file also carries an inline comment marked "SWARM change"
+explaining the reason at the point of the change.
+
+1. RPC transport and authentication
+   - Added lib/zcash_explorer/rpc.ex. The upstream Zcashex GenServer captured
+     a fixed RPC username and password at boot. Zebra authenticates with a
+     cookie file whose secret is regenerated on every node start, so the new
+     module reads the credential at request time and re-reads it once after an
+     authentication failure. The secret is never logged.
+   - Removed the Zcashex process from the supervision tree; its decoders are
+     still used.
+   - config/releases.exs replaced by config/runtime.exs. ZCASHD_USERNAME and
+     ZCASHD_PASSWORD are no longer required or read.
+
+2. Features removed because Zebra does not serve them
+   - Payment Disclosure (/payment-disclosure): needed the zcashd wallet RPC
+     z_validatepaymentdisclosure.
+   - Viewing Key (/vk, /api/vk/:hostname, VkLive): shelled out to
+     "docker create nighthawkapps/vkrunner" through MuonTrap. The muontrap
+     dependency was removed with it.
+   - The /price route, which referenced a PriceLive module that does not exist
+     in this tree. SWARM test coins have no price and no price is fetched.
+   - The "Commitments" tile, which Zebra always reports as 0.
+   - The Tor onion-address link and config/onion_address.txt.
+
+3. Network identity and the block-reward allocation
+   - Added lib/zcash_explorer/swarm.ex. Network name, ticker, maximum supply,
+     halving interval, block target and the three reward destinations all come
+     from configuration; nothing is hard-coded per deployment.
+   - The block page gained a "Block reward" breakdown: four rows (miner plus
+     the three allocations) with amount, share of the subsidy and a linked
+     destination address, read from getblocksubsidy.
+   - Zebra's upstream funding-stream slot names are relabelled for display:
+     ECC / "Electric Coin Company" -> Core Development;
+     MajorGrants / "Major Grants" / "Zcash Community Grants NU6" ->
+     Grants & Ecosystem;
+     ZcashFoundation / "Zcash Foundation" -> Community & Development Reserve.
+   - The address page badges an address that is one of the three destinations.
+   - The home page gained total supply issued against the maximum, the next
+     halving height, the network solution rate and every shielded value pool;
+     the fixed Orchard-only tile became ShieldedPoolLive.
+
+4. Address routing
+   - Added the testnet human-readable prefixes ztestsapling (Sapling) and
+     utest (unified) to the shielded and unified routing. Upstream only knew
+     the mainnet prefixes zc, zs and u, so a SwarmTestnet shielded address was
+     sent to the transparent code path.
+
+5. Cache warmers
+   - Added lib/zcash_explorer/warmer_window.ex. The window is clamped at height
+     0, so a chain shorter than the window (including heights 0-10) no longer
+     asks the node for negative heights, and the refresh interval is derived
+     from the configured block target (25 s for 75-second blocks) instead of a
+     fixed 15 s.
+   - The Cachex bound was reduced from 10,000 to 1,500 entries by default with
+     a 15-minute expiry, both env-configurable, for a 2 vCPU / 4 GB server.
+
+6. Database
+   - Removed ZcashExplorer.Repo, priv/repo, the ecto_sql, postgrex,
+     phoenix_ecto and ecto_psql_extras dependencies and the Ecto SQL sandbox
+     from the test cases. The repository was already absent from the
+     supervision tree and nothing queried it, but its presence meant the test
+     suite could not run without a Postgres database.
+
+7. Branding and privacy
+   - Nighthawk Apps branding, the @ZcashExplorer link, the mainnet/testnet
+     cross-links and the Zcash logo were replaced with SWARM's own.
+   - The Google Fonts stylesheet link was removed. Inter is self-hosted from
+     @fontsource; the display and monospace stacks fall back to system faces.
+     No analytics, trackers or third-party scripts are loaded.
+   - The Tailwind palette was replaced with the swarm.green design tokens.
+   - A footer states "SWARM testnet - test coins have no value" and the
+     non-affiliation above.
+   - check_origin and the endpoint URL are derived from EXPLORER_HOSTNAME.
+
+8. Operations
+   - Dockerfile rewritten: multi-stage, non-root (uid 10001, matching the
+     official zfnd/zebra image so the RPC cookie can be read from a shared
+     volume without being world-readable), HEALTHCHECK against a new /healthz
+     endpoint that makes no RPC call, BEAM schedulers pinned to two in
+     rel/vm.args.eex for a small shared-CPU server.
+   - Added .github/workflows/swarm-ci.yml, which compiles with warnings as
+     errors, runs the test suite, builds the image, mines a Regtest chain with
+     a real Zebra 6.3.0 node, asserts the pages against it, restarts the node
+     to prove the explorer survives a cookie rotation, and saves the image as
+     a tarball artifact.
+   - Renamed ".env.example " (with a trailing space) to ".env.example", which
+     is what made the repository impossible to check out on Windows.

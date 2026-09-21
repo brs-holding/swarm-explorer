@@ -10,7 +10,7 @@
           <div class="bg-white shadow sm:rounded-lg dark:bg-gray-800">
             <div class="px-4 py-5 sm:px-6">
               <h2 id="block-details-title" class="text-lg leading-6 font-medium text-gray-900 dark:bg-gray-200">
-      Details for the Zcash block #<%= @block_data["height"] %>
+      Details for the <%= @project_name %> block #<%= @block_data["height"] %>
       </h2>
             </div>
 
@@ -78,7 +78,55 @@
                   </dd>
                 </div>
 
-                 </dl>
+   
+                <%!-- SWARM addition: the four-way block reward split. The three
+                    non-miner rows come from Zebra's funding streams, relabelled
+                    from the upstream slot names (see ZcashExplorer.Swarm). --%>
+                <div class="sm:col-span-2" id="block-reward">
+                  <dt class="text-sm font-medium text-gray-500 dark:text-gray-300">
+                Block reward
+                  </dt>
+                  <dd class="mt-1">
+                    <%= if @reward_breakdown == [] do %>
+                      <p class="text-sm text-gray-500 dark:text-gray-400">
+                      The node reported no reward breakdown for this height.
+                      </p>
+                    <% else %>
+                      <table class="min-w-full text-sm">
+                        <thead>
+                          <tr class="text-left text-xs uppercase text-gray-500 dark:text-gray-400">
+                            <th scope="col" class="py-1 pr-4">Recipient</th>
+                            <th scope="col" class="py-1 pr-4">Amount</th>
+                            <th scope="col" class="py-1 pr-4">Share</th>
+                            <th scope="col" class="py-1">Destination</th>
+                          </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                          <%= for row <- @reward_breakdown do %>
+                            <tr>
+                              <td class="py-1 pr-4 text-gray-900 dark:text-gray-50"><%= row.label %></td>
+                              <td class="py-1 pr-4 tabular-nums text-gray-900 dark:text-gray-50">
+                                <%= ZcashExplorerWeb.TransactionView.format_zec(row.amount) %>
+                              </td>
+                              <td class="py-1 pr-4 tabular-nums text-gray-500 dark:text-gray-400">
+                                <%= :erlang.float_to_binary(row.share + 0.0, [:compact, {:decimals, 3}]) %>%
+                              </td>
+                              <td class="py-1 break-all">
+                                <%= if row.address do %>
+                                  <a href={"/address/#{row.address}"} class="text-swarm-honey-ink dark:text-swarm-honey hover:underline font-mono text-xs"><%= row.address %></a>
+                                <% else %>
+                                  <span class="text-gray-400 text-xs">the miner's own payout address</span>
+                                <% end %>
+                              </td>
+                            </tr>
+                          <% end %>
+                        </tbody>
+                      </table>
+                    <% end %>
+                  </dd>
+                </div>
+
+              </dl>
             </div>
           </div>
 </section>

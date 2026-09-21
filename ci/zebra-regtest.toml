@@ -1,0 +1,35 @@
+# Zebra configuration for the CI end-to-end job.
+#
+# Regtest is the only network where the `generate` RPC works (Zebra refuses it
+# unless proof of work is disabled), so it is how CI produces a chain without
+# mining Equihash. It cannot carry SWARM's funding streams, so the reward
+# breakdown is covered by a unit test against a recorded getblocksubsidy reply
+# instead; see test/swarm/block_reward_test.exs.
+#
+# This file is NOT a SwarmTestnet configuration. The real network parameters
+# live in workstream A's network/swarm-testnet/manifest.json.
+
+[network]
+network = "Regtest"
+
+[state]
+# Persistent, so restarting the container to rotate the RPC cookie does not
+# also wipe the chain the assertions are about.
+ephemeral = false
+cache_dir = "/zebra-state"
+
+[rpc]
+listen_addr = "0.0.0.0:18232"
+# Cookie authentication on, which is Zebra's default and the thing the
+# explorer's ZcashExplorer.Rpc has to cope with: the secret changes on every
+# start.
+enable_cookie_auth = true
+cookie_dir = "/zebra-cookie"
+
+[mining]
+# Zebra's own documented test address (book/src/user/regtest.md). Every coinbase
+# in this job pays here, which is what the /address assertion looks up.
+miner_address = "t27eWDgjFYJGVXmzrXeVjnb5J3uXDM9xH9v"
+
+[tracing]
+filter = "info"

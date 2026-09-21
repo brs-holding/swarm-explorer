@@ -1,25 +1,31 @@
 defmodule ZcashExplorer.Blocks.BlockWarmer do
+  alias ZcashExplorer.Rpc
+  alias ZcashExplorer.WarmerWindow
   use Cachex.Warmer
   require Logger
 
   @doc """
   Returns the interval for this warmer.
+
+  SWARM change: was a hardcoded 15 s. At 75-second blocks that refetched the
+  same 21 blocks five times per block produced; see `ZcashExplorer.WarmerWindow`.
   """
-  def interval,
-    do: :timer.seconds(15)
+  def interval, do: WarmerWindow.interval_ms()
 
   @doc """
   Executes this cache warmer.
   """
   def execute(_state) do
     # get the blocks mined in that duration
-    case Zcashex.getblockcount() do
+    case Rpc.getblockcount() do
       {:ok, n} ->
-        # from
+        # SWARM change: the window is clamped at height 0, so a chain shorter
+        # than the window (including heights 0-10) does not ask the node for
+        # negative heights.
         blocks =
-          Enum.to_list((n - 20)..n)
+          WarmerWindow.heights(n)
           |> Enum.map(fn x ->
-            case Zcashex.getblock(x, 2) do
+            case Rpc.getblock(x, 2) do
               {:ok, block} -> block
               _ -> nil
             end

@@ -1,10 +1,12 @@
 defmodule ZcashExplorerWeb.BlockController do
+  alias ZcashExplorer.Rpc
+  alias ZcashExplorer.Swarm
   use ZcashExplorerWeb, :controller
 
   @default_limit 20
 
   def get_block(conn, %{"hash" => hash}) do
-    case Zcashex.getblock(hash, 1) do
+    case Rpc.getblock(hash, 1) do
       {:ok, basic_block_data} -> render_block(conn, hash, basic_block_data)
       {:error, _reason} -> not_found(conn, hash)
     end
@@ -28,22 +30,48 @@ defmodule ZcashExplorerWeb.BlockController do
     txs = basic_block_data["tx"] || []
 
     with true <- length(txs) in 1..250,
-         {:ok, block_data} <- Zcashex.getblock(hash, 2) do
+         {:ok, block_data} <- Rpc.getblock(hash, 2) do
       block_data = Zcashex.Block.from_map(block_data)
 
       render(conn, "index.html",
         block_data: block_data,
-        block_subsidy: nil,
-        page_title: "Zcash block #{block_data.height}"
+        # SWARM change: upstream always passed nil here, so the assign existed
+        # but never carried anything. The block page now shows the four-way
+        # reward split from `getblocksubsidy` at this block's height.
+        block_subsidy: block_subsidy(block_data.height),
+        reward_breakdown: reward_breakdown(block_data.height),
+        page_title: "#{Swarm.project_name()} block #{block_data.height}"
       )
     else
       _ ->
         render(conn, "basic_block.html",
           block_data: basic_block_data,
-          page_title: "Zcash block #{hash}"
+          reward_breakdown: reward_breakdown(basic_block_data["height"]),
+          page_title: "#{Swarm.project_name()} block #{hash}"
         )
     end
   end
+
+  # `getblocksubsidy` is cached for an hour: for a given height it is a pure
+  # function of the consensus rules and never changes.
+  defp block_subsidy(height) when is_integer(height) do
+    case Cachex.fetch(:app_cache, "blocksubsidy:#{height}", fn ->
+           case Rpc.getblocksubsidy(height) do
+             {:ok, subsidy} -> {:commit, subsidy}
+             {:error, _reason} -> {:ignore, nil}
+           end
+         end) do
+      {:ok, subsidy} -> subsidy
+      {:commit, subsidy} -> subsidy
+      _ -> nil
+    end
+  catch
+    :exit, _ -> nil
+  end
+
+  defp block_subsidy(_), do: nil
+
+  defp reward_breakdown(height), do: height |> block_subsidy() |> Swarm.reward_breakdown()
 
   defp render_index(conn, from_block, limit, disable_previous) do
     to_block = max(from_block - limit, 0)
@@ -56,14 +84,14 @@ defmodule ZcashExplorerWeb.BlockController do
       date: "",
       previous: from_block + limit,
       next: to_block,
-      page_title: "Zcash latest blocks"
+      page_title: "#{Swarm.project_name()} latest blocks"
     )
   end
 
   # Bots poll /blocks continuously and every miss costs 21 getblock plus 21
-  # getblockheader calls through the single Zcashex process, which is what
-  # pushed responses past nginx's 36s proxy_read_timeout. Cachex.fetch/3
-  # collapses concurrent callers onto one computation instead of stampeding.
+  # getblockheader calls, which is what pushed responses past nginx's 36s
+  # proxy_read_timeout. Cachex.fetch/3 collapses concurrent callers onto one
+  # computation instead of stampeding.
   defp cached_block_headers(to_block, from_block) do
     key = "block_headers:#{to_block}:#{from_block}"
 
@@ -73,7 +101,7 @@ defmodule ZcashExplorerWeb.BlockController do
       # listing would never refresh. This Cachex version ignores a per-commit
       # ttl, so without it the entry would inherit the cache-wide 1h default.
       {:commit, headers} ->
-        Cachex.expire(:app_cache, key, :timer.seconds(15))
+        Cachex.expire(:app_cache, key, ZcashExplorer.WarmerWindow.interval_ms())
         headers
 
       {:ok, headers} ->
@@ -102,16 +130,16 @@ defmodule ZcashExplorerWeb.BlockController do
   # Verbosity 1 already carries the hash; verbosity 2 pulled every transaction
   # of every listed block just to read it.
   defp block_header(height) do
-    with {:ok, %{"hash" => hash}} <- Zcashex.getblock(height, 1) do
-      Zcashex.getblockheader(hash)
+    with {:ok, %{"hash" => hash}} <- Rpc.getblock(height, 1) do
+      Rpc.getblockheader(hash)
     end
   end
 
-  # A Zcashex call that exceeds its GenServer timeout exits rather than
-  # returning {:error, _}, so the case alone never saw it. The metrics warmer
-  # refreshes this every 15s, which beats 404ing the block list over a blip.
+  # An RPC call that exceeds its timeout can exit rather than returning
+  # {:error, _}, so the case alone never saw it. The metrics warmer refreshes
+  # this key regularly, which beats 404ing the block list over a blip.
   defp tip_height do
-    case Zcashex.getblockcount() do
+    case Rpc.getblockcount() do
       {:ok, n} -> n
       _ -> cached_tip()
     end

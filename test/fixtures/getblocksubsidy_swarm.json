@@ -1,0 +1,41 @@
+{
+  "_comment": [
+    "Recorded shape of Zebra 6.3.0's getblocksubsidy reply for a SwarmTestnet",
+    "block in era 0 (reward 6.25), with the three funding streams of",
+    "specs/ECONOMICS.md v0.4 configured. The recipient strings and the field",
+    "names are upstream's: see zebra-rpc/src/methods/types/subsidy.rs and",
+    "FundingStreamReceiver::info/1 in",
+    "zebra-chain/src/parameters/network/subsidy.rs at tag v6.3.0. Every upgrade",
+    "through NU6.3 is active from height 1 on SwarmTestnet, so is_post_nu6 is",
+    "true and MajorGrants prints as 'Zcash Community Grants NU6'.",
+    "The addresses are fixtures, not the real destinations."
+  ],
+  "fundingstreams": [
+    {
+      "recipient": "Electric Coin Company",
+      "specification": "https://zips.z.cash/zip-1015",
+      "value": 0.5,
+      "valueZat": 50000000,
+      "address": "t2CoreDevelopmentFixtureAddress0001"
+    },
+    {
+      "recipient": "Zcash Community Grants NU6",
+      "specification": "https://zips.z.cash/zip-1015",
+      "value": 0.25,
+      "valueZat": 25000000,
+      "address": "t2GrantsEcosystemFixtureAddress0002"
+    },
+    {
+      "recipient": "Zcash Foundation",
+      "specification": "https://zips.z.cash/zip-1015",
+      "value": 0.5,
+      "valueZat": 50000000,
+      "address": "t2CommunityReserveFixtureAddress003"
+    }
+  ],
+  "miner": 5.0,
+  "founders": 0.0,
+  "fundingstreamstotal": 1.25,
+  "lockboxtotal": 0.0,
+  "totalblocksubsidy": 6.25
+}

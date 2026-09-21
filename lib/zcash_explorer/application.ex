@@ -8,35 +8,36 @@ defmodule ZcashExplorer.Application do
 
   def start(_type, _args) do
     children = [
-      # Start the Ecto repository
-      # ZcashExplorer.Repo,
       # Start the Telemetry supervisor
       ZcashExplorerWeb.Telemetry,
       # Start the PubSub system
       {Phoenix.PubSub, name: ZcashExplorer.PubSub},
       # Start the Endpoint (http/https)
       ZcashExplorerWeb.Endpoint,
-      # Start a worker by calling: ZcashExplorer.Worker.start_link(arg)
-      %{
-        id: Zcashex,
-        start:
-          {Zcashex, :start_link,
-           [
-             Application.get_env(:zcash_explorer, Zcashex)[:zcashd_hostname],
-             String.to_integer(Application.get_env(:zcash_explorer, Zcashex)[:zcashd_port]),
-             Application.get_env(:zcash_explorer, Zcashex)[:zcashd_username],
-             Application.get_env(:zcash_explorer, Zcashex)[:zcashd_password]
-           ]}
-      },
+      # SWARM change: the Zcashex GenServer used to be supervised here purely to
+      # hold the RPC host, port, username and password. Zebra rotates its
+      # cookie secret on every restart, so credentials cannot be held for the
+      # life of a process; `ZcashExplorer.Rpc` is a plain module that reads the
+      # cookie when it sends a request. Nothing to supervise.
       {
         Cachex,
         # Raw transactions are cached here by transaction_controller; their `hex`
         # field runs to tens of KB, so without a bound the cache grew until the
-        # OOM killer took the node down. 10k entries caps it at a few hundred MB;
-        # the warmers rewrite their keys every 15s so LRW never evicts them.
+        # OOM killer took the node down.
+        #
+        # SWARM change: upstream's bound was 10,000 entries, which still allows
+        # a few hundred MB of raw transaction hex. The deployment target is a
+        # 2 vCPU / 4 GB server shared with the node and the indexer, so the
+        # default is 1,500 entries (SWARM_CACHE_LIMIT) with a 15-minute default
+        # expiry (SWARM_CACHE_TTL_MINUTES) and a 1-minute janitor. The warmers
+        # rewrite their own keys every interval, so LRW never evicts them.
         name: :app_cache,
-        limit: limit(size: 10_000, policy: Cachex.Policy.LRW, reclaim: 0.1),
-        expiration: expiration(default: :timer.hours(1), interval: :timer.minutes(5)),
+        limit: limit(size: cache_limit(), policy: Cachex.Policy.LRW, reclaim: 0.25),
+        expiration:
+          expiration(
+            default: :timer.minutes(cache_ttl_minutes()),
+            interval: :timer.minutes(1)
+          ),
         warmers: [
           warmer(module: ZcashExplorer.Metrics.MetricsWarmer, state: {}),
           warmer(module: ZcashExplorer.Metrics.MempoolInfoWarmer, state: {}),
@@ -54,6 +55,17 @@ defmodule ZcashExplorer.Application do
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: ZcashExplorer.Supervisor]
     Supervisor.start_link(children, opts)
+  end
+
+  defp cache_limit, do: env_int("SWARM_CACHE_LIMIT", 1_500)
+  defp cache_ttl_minutes, do: env_int("SWARM_CACHE_TTL_MINUTES", 15)
+
+  defp env_int(name, default) do
+    case System.get_env(name) do
+      nil -> default
+      "" -> default
+      value -> String.to_integer(value)
+    end
   end
 
   # Tell Phoenix to update the endpoint configuration

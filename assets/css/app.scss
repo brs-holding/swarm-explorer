@@ -2,57 +2,64 @@
 @tailwind components;
 @tailwind utilities;
 
+/* SWARM change: the z.cash typography system (DM Serif Display from Google
+   Fonts + Inter) is replaced by the swarm.green stacks. Inter is bundled from
+   @fontsource, so no font is fetched from a third party. Sora and JetBrains
+   Mono degrade to the system faces named in the stack. */
+
 @layer base {
-  /* z.cash typography system
-     h1            → DM Serif Display 400  (display serif, matches z.cash hero style)
-     h2            → Inter 800 uppercase   (section titles, matches z.cash h2 spec)
-     h3            → Inter 700             (sub-sections)
-     h4–h6, body   → Inter 300–500         (body / small labels)
-     Source: https://z.cash elementor-kit-5 CSS variables                         */
+  :root {
+    --honey: #F5A623;
+    --amber-deep: #E8890C;
+    --comb: #FFC94D;
+    --pollen: #FFE9A8;
+    --cream: #FFF8E7;
+    --hive-black: #0E1116;
+    --bark: #161A21;
+    --wax: #252A33;
+    --ink: #E6EDF3;
+    --ink-dim: #9AA4B2;
+    --leaf: #3FB950;
+    --honey-ink: #8A4B03;
+  }
 
   h1 {
-    font-family: 'DM Serif Display', serif;
-    font-weight: 400;
-    line-height: 1.1em;
-    color: inherit;
+    @apply font-display;
+    font-weight: 700;
+    line-height: 1.08;
+    letter-spacing: -0.02em;
   }
 
   h2 {
-    font-family: 'Inter var', 'Inter', sans-serif;
-    font-size: 1.5rem;
-    font-weight: 800;
-    text-transform: uppercase;
-    line-height: 1.25em;
-    letter-spacing: 0.02em;
+    @apply font-display;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.015em;
   }
 
-  h3 {
-    font-family: 'Inter var', 'Inter', sans-serif;
+  h3, h4, h5, h6 {
+    @apply font-sans;
     font-weight: 700;
-    line-height: 1.35em;
-  }
-
-  h4, h5, h6 {
-    font-family: 'Inter var', 'Inter', sans-serif;
-    font-weight: 700;
-    line-height: 1.2em;
+    line-height: 1.25;
   }
 
   a {
     @apply transition-colors;
   }
 
-  /* Zcash gold for links (matches z.cash: a { color: var(--e-global-color-accent) }) */
+  /* Upstream's stat cards leaned on indigo utility classes in many templates;
+     map them once here rather than editing every call site. */
   .text-indigo-600 {
-    @apply text-zcash-gold-dim;
+    @apply text-swarm-honey-ink;
+  }
+  .dark .text-indigo-600 {
+    @apply text-swarm-honey;
   }
   .hover\:text-indigo-500:hover {
-    @apply text-zcash-gold;
+    @apply text-swarm-amber;
   }
 
-  /* Stat cards: subtle gold left-border accent */
-  .px-4.py-5.bg-white.shadow {
-    @apply border-l-2;
-    border-color: rgba(243, 183, 36, 0.3);
+  code, pre, .font-mono {
+    @apply font-mono;
   }
 }

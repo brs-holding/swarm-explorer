@@ -5,7 +5,7 @@
         <div class="bg-white-500 shadow rounded-lg dark:bg-gray-800">
           <div class="px-4 py-5 sm:px-6">
             <h2 id="block-details-title" class="text-lg leading-6 font-medium text-gray-900 inline-block break-words dark:text-gray-50">
-            Details for the Zcash Transaction ID </h2>
+            Details for the <%= @project_name %> transaction ID </h2>
             <h2 class="md:inline-block  text-gun-powder-500 break-words dark:text-gray-200"><%= @tx.txid %>
             </h2>
           </div>
@@ -169,7 +169,7 @@
                 </dt>
                 <dd class="mt-1 text-sm text-gray-900 dark:text-gray-50">
                   <%= if ZcashExplorerWeb.BlockView.tx_type(@tx) == "coinbase" do %>
-                  0.0 <%= if @zcash_network == "mainnet", do: "ZEC", else: "TAZ" %>
+                  0.0 <%= @ticker %>
                   <% end %>
                   <%= if ZcashExplorerWeb.BlockView.tx_type(@tx) == "transparent" do %>
                     <%= transparent_tx_fee(@tx) %>

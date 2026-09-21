@@ -1,24 +1,28 @@
 defmodule ZcashExplorer.Transactions.TransactionWarmer do
+  alias ZcashExplorer.Rpc
+  alias ZcashExplorer.WarmerWindow
   use Cachex.Warmer
   require Logger
 
   @doc """
   Returns the interval for this warmer.
+
+  SWARM change: was a hardcoded 15 s; see `ZcashExplorer.WarmerWindow`.
   """
-  def interval,
-    do: :timer.seconds(15)
+  def interval, do: WarmerWindow.interval_ms()
 
   @doc """
   Executes this cache warmer.
   """
   def execute(_state) do
-    case Zcashex.getblockcount() do
+    case Rpc.getblockcount() do
       {:ok, n} ->
-        # from
+        # SWARM change: clamped window, so a short chain never asks for a
+        # negative height.
         blocks =
-          Enum.to_list((n - 20)..n)
+          WarmerWindow.heights(n)
           |> Enum.map(fn x ->
-            case Zcashex.getblock(x, 2) do
+            case Rpc.getblock(x, 2) do
               {:ok, block} -> block
               _ -> nil
             end
@@ -36,7 +40,7 @@ defmodule ZcashExplorer.Transactions.TransactionWarmer do
         blocks
         |> Enum.take(20)
         |> Enum.map(fn y ->
-          case Zcashex.getrawtransaction(y["txid"], 1) do
+          case Rpc.getrawtransaction(y["txid"], 1) do
             {:ok, tx} -> Zcashex.Transaction.from_map(tx)
             _ -> nil
           end

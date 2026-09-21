@@ -3,8 +3,6 @@ defmodule ZcashExplorerWeb.BlockChainInfoLive do
   import Phoenix.LiveView.Helpers
   @impl true
   def render(assigns) do
-    currency = if(assigns.blockchain_info["chain"] == "main", do: "ZEC", else: "TAZ")
-
     ~L"""
     <div>
     <dl class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
@@ -19,15 +17,6 @@ defmodule ZcashExplorerWeb.BlockChainInfoLive do
 
     <div class="px-4 py-5 bg-white shadow rounded-lg overflow-hidden sm:p-6 dark:bg-gray-800">
       <dt class="text-sm font-medium text-gray-500 truncate">
-        Commitments
-      </dt>
-      <dd class="mt-1 text-3xl font-semibold text-gray-900 dark:text-white">
-        <%= @blockchain_info["commitments"] %>
-      </dd>
-    </div>
-
-    <div class="px-4 py-5 bg-white shadow rounded-lg overflow-hidden sm:p-6 dark:bg-gray-800">
-      <dt class="text-sm font-medium text-gray-500 truncate">
         Difficulty
       </dt>
       <dd class="mt-1 text-3xl font-semibold text-gray-900 dark:text-white">
@@ -35,31 +24,24 @@ defmodule ZcashExplorerWeb.BlockChainInfoLive do
       </dd>
     </div>
 
-    <div class="px-4 py-5 bg-white shadow rounded-lg overflow-hidden sm:p-6 dark:bg-gray-800">
-      <dt class="text-sm font-medium text-gray-500 truncate">
-        Sprout pool
-      </dt>
-      <dd class="mt-1 text-3xl font-semibold text-gray-900 dark:text-white">
-          <%= sprout_value(@blockchain_info["valuePools"]) %> <%= currency %>
-      </dd>
-    </div>
+    <%= for {id, value} <- @pools do %>
+      <div class="px-4 py-5 bg-white shadow rounded-lg overflow-hidden sm:p-6 dark:bg-gray-800">
+        <dt class="text-sm font-medium text-gray-500 truncate capitalize">
+          <%= id %> pool
+        </dt>
+        <dd class="mt-1 text-3xl font-semibold text-gray-900 dark:text-white">
+          <%= value %> <%= @ticker %>
+        </dd>
+      </div>
+    <% end %>
 
     <div class="px-4 py-5 bg-white shadow rounded-lg overflow-hidden sm:p-6 dark:bg-gray-800">
       <dt class="text-sm font-medium text-gray-500 truncate">
-        Sapling pool
+        Total supply issued
       </dt>
       <dd class="mt-1 text-3xl font-semibold text-gray-900 dark:text-white">
-          <%= sapling_value(@blockchain_info["valuePools"]) %> <%= currency %>
+        <%= get_in(@blockchain_info, ["chainSupply", "chainValue"]) %> <%= @ticker %>
       </dd>
-    </div>
-
-    <div class="px-4 py-5 bg-white shadow rounded-lg overflow-hidden sm:p-6 dark:bg-gray-800">
-    <dt class="text-sm font-medium text-gray-500 truncate">
-      Orchard pool
-    </dt>
-    <dd class="mt-1 text-3xl font-semibold text-gray-900 dark:text-white">
-        <%= orchard_value(@blockchain_info["valuePools"]) %> <%= currency %>
-    </dd>
     </div>
 
     <div class="px-4 py-5 bg-white shadow rounded-lg overflow-hidden sm:p-6 dark:bg-gray-800">
@@ -83,38 +65,27 @@ defmodule ZcashExplorerWeb.BlockChainInfoLive do
 
     case ZcashExplorer.Cache.fetch("metrics") do
       {:ok, info} ->
-        build = ZcashExplorer.Cache.field("info", "build")
-        info = Map.put(info, "build", build)
-        {:ok, assign(socket, :blockchain_info, info)}
+        {:ok, assign(socket, assigns_for(info))}
 
       {:error, _reason} ->
-        {:ok, assign(socket, :blockchain_info, "loading...")}
+        {:ok, assign(socket, assigns_for(%{}))}
     end
+  end
+
+  defp assigns_for(info) do
+    info = Map.put(info, "build", ZcashExplorer.Cache.field("info", "build"))
+
+    [
+      blockchain_info: info,
+      pools: ZcashExplorer.Swarm.shielded_pools(info["valuePools"]),
+      ticker: ZcashExplorer.Swarm.ticker()
+    ]
   end
 
   @impl true
   def handle_info(:update, socket) do
     Process.send_after(self(), :update, 15000)
-    info = ZcashExplorer.Cache.get("metrics", %{})
-    build = ZcashExplorer.Cache.field("info", "build")
-    info = Map.put(info, "build", build)
-    {:noreply, assign(socket, :blockchain_info, info)}
+    {:noreply, assign(socket, assigns_for(ZcashExplorer.Cache.get("metrics", %{})))}
   end
 
-  defp sprout_value(value_pools) do
-    value_pools |> get_value_pools() |> Map.get("sprout")
-  end
-
-  defp sapling_value(value_pools) do
-    value_pools |> get_value_pools() |> Map.get("sapling")
-  end
-
-  defp orchard_value(value_pools) do
-    value_pools |> get_value_pools() |> Map.get("orchard")
-  end
-
-  defp get_value_pools(value_pools) do
-    Enum.map(value_pools, fn %{"id" => name, "chainValue" => value} -> {name, value} end)
-    |> Map.new()
-  end
 end

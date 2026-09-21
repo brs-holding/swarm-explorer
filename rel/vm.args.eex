@@ -1,11 +1,23 @@
 ## Customize flags given to the VM: http://erlang.org/doc/man/erl.html
 ## -mode/-name/-sname/-setcookie are configured via env vars, do not set them here
 
-## Number of dirty schedulers doing IO work (file, sockets, and others)
-##+SDio 5
+## SWARM change: the target server is 2 shared vCPUs and 4 GB RAM, and the
+## explorer must stay well under 768 MB RSS. The BEAM sizes its scheduler pool
+## from the host's core count, not the container's CPU quota, so on a shared
+## host it would otherwise start a scheduler per host core and each one carries
+## its own run queue and memory. Pin it to two normal and two dirty-CPU
+## schedulers. Override with ERL_FLAGS if the box is bigger.
++S 2:2
++SDcpu 2:2
 
-## Increase number of concurrent ports/sockets
-##+Q 65536
+## Two dirty-IO schedulers are plenty: the only IO is HTTP to the node.
++SDio 2
 
-## Tweak GC to run more often
-##-env ERL_FULLSWEEP_AFTER 10
+## Collect garbage aggressively rather than trading memory for throughput. The
+## workload is many short-lived request processes, so full sweeps are cheap and
+## keep the resident set flat between bursts of traffic.
+-env ERL_FULLSWEEP_AFTER 10
+
+## Bound the number of concurrent ports; the default 65536 reserves more than
+## this service ever needs.
++Q 4096

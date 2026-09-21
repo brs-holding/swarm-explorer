@@ -1,6 +1,9 @@
 const colors = require('tailwindcss/colors')
 const defaultTheme = require('tailwindcss/defaultTheme')
 
+// SWARM change: the Zcash palette is replaced by the swarm.green design tokens
+// (css/site.css on the live site). Names match the tokens there so the explorer
+// and the website stay in step.
 module.exports = {
   darkMode: 'class',
   content: [
@@ -16,23 +19,29 @@ module.exports = {
         green: colors.emerald,
         yellow: colors.amber,
         purple: colors.violet,
-        zcash: {
-          gold:         '#F3B724',  // --e-global-color-accent
-          'gold-hover': '#FDC63E',  // z.cash link hover
-          'gold-dim':   '#C8941A',
-          navy:         '#271219',  // --e-global-color-secondary (dark nav/surfaces)
-          dark:         '#271219',  // dark mode page bg
-          light:        '#F3F1EF',  // --e-global-color-97d28a6 (warm cream bg)
-          text:         '#141529',  // --e-global-color-text
-          muted:        '#797576',  // --e-global-color-a466fad
-          beige:        '#E3DED7',  // --e-global-color-822683b
+        swarm: {
+          honey:       '#F5A623',  // --honey
+          amber:       '#E8890C',  // --amber-deep
+          comb:        '#FFC94D',  // --comb
+          pollen:      '#FFE9A8',  // --pollen
+          cream:       '#FFF8E7',  // --cream
+          hive:        '#0E1116',  // --hive-black
+          bark:        '#161A21',  // --bark
+          wax:         '#252A33',  // --wax
+          ink:         '#E6EDF3',  // --ink
+          'ink-dim':   '#9AA4B2',  // --ink-dim
+          leaf:        '#3FB950',  // --leaf
+          // The only amber that clears WCAG AA as text on --cream (6.4:1).
+          'honey-ink': '#8A4B03',  // --honey-ink
         },
       },
       fontFamily: {
-        // Inter: body font on z.cash (all weights 300–800)
+        // swarm.green stacks. Inter is self-hosted via @fontsource; Sora and
+        // JetBrains Mono fall back to system faces rather than pulling a
+        // third-party font file at page load.
         sans:    ['Inter var', 'Inter', ...defaultTheme.fontFamily.sans],
-        // DM Serif Display: h1 / display headings on z.cash
-        display: ['"DM Serif Display"', ...defaultTheme.fontFamily.serif],
+        display: ['Sora', 'Segoe UI Variable Display', 'Segoe UI', ...defaultTheme.fontFamily.sans],
+        mono:    ['JetBrains Mono', 'ui-monospace', 'Cascadia Mono', ...defaultTheme.fontFamily.mono],
       },
     },
   },

@@ -1,15 +1,16 @@
 defmodule ZcashExplorerWeb.TransactionController do
+  alias ZcashExplorer.Rpc
   use ZcashExplorerWeb, :controller
 
   def get_transaction(conn, %{"txid" => txid}) do
-    case Zcashex.getrawtransaction(txid, 1) do
+    case Rpc.getrawtransaction(txid, 1) do
       {:ok, tx} ->
         tx_data =
           tx
           |> Zcashex.Transaction.from_map()
           |> enrich_vin()
 
-        render(conn, "tx.html", tx: tx_data, page_title: "Zcash Transaction #{txid}")
+        render(conn, "tx.html", tx: tx_data, page_title: "#{ZcashExplorer.Swarm.project_name()} transaction #{txid}")
 
       {:error, _reason} ->
         conn
@@ -22,7 +23,7 @@ defmodule ZcashExplorerWeb.TransactionController do
   # has seen them, so a miss is a routine 404 and not a 500.
   def get_raw_transaction(conn, %{"txid" => txid}) do
     {status, body} =
-      case Zcashex.getrawtransaction(txid, 1) do
+      case Rpc.getrawtransaction(txid, 1) do
         {:ok, tx} -> {200, tx}
         {:error, reason} -> {404, %{error: reason, txid: txid}}
       end
@@ -65,7 +66,7 @@ defmodule ZcashExplorerWeb.TransactionController do
 
   defp fetch_prevout(txid, vout_index) do
     fallback = fn ->
-      case Zcashex.getrawtransaction(txid, 1) do
+      case Rpc.getrawtransaction(txid, 1) do
         {:ok, tx} -> {:commit, tx}
         {:error, _reason} -> {:ignore, nil}
       end

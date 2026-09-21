@@ -1,0 +1,320 @@
+name: SWARM explorer CI
+
+# This workflow is the only place the explorer can actually be run: the
+# development machine has no Elixir and no working Docker. Everything claimed
+# about the fork is proven here or not at all.
+on:
+  push:
+    branches: [swarm-testnet]
+  workflow_dispatch:
+
+concurrency:
+  group: swarm-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  ELIXIR_VERSION: "1.18.3"
+  OTP_VERSION: "27.3.3"
+  ZEBRA_IMAGE: "zfnd/zebra:6.3.0"
+  # Zebra's own documented test address (book/src/user/regtest.md). Every
+  # coinbase in the end-to-end job pays here.
+  MINER_ADDRESS: "t27eWDgjFYJGVXmzrXeVjnb5J3uXDM9xH9v"
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 1. Compile and test
+  # ---------------------------------------------------------------------------
+  elixir:
+    name: Compile and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{ env.OTP_VERSION }}
+          elixir-version: ${{ env.ELIXIR_VERSION }}
+
+      - name: Cache deps and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          key: mix-${{ runner.os }}-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-${{ hashFiles('mix.lock') }}
+          restore-keys: mix-${{ runner.os }}-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-
+
+      - run: mix deps.get
+
+      - name: Compile with warnings as errors
+        run: mix compile --warnings-as-errors
+
+      - name: Test
+        run: mix test
+
+  # ---------------------------------------------------------------------------
+  # 2. Build the image, prove it against a real Zebra node, publish the tarball
+  # ---------------------------------------------------------------------------
+  image:
+    name: Image, end-to-end, artifact
+    runs-on: ubuntu-latest
+    needs: elixir
+    timeout-minutes: 45
+    env:
+      IMAGE: brs-swarm-explorer
+      COOKIE_VOLUME: swarm-ci-cookie
+      STATE_VOLUME: swarm-ci-state
+      NETWORK: swarm-ci-net
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the production image (linux/amd64)
+        run: |
+          set -euo pipefail
+          SHA="${GITHUB_SHA::12}"
+          echo "SHORT_SHA=$SHA" >> "$GITHUB_ENV"
+          docker build --platform linux/amd64 \
+            -t "$IMAGE:$SHA" -t "$IMAGE:ci" .
+          docker image inspect "$IMAGE:$SHA" --format '{{.Id}} {{.Size}} {{.Os}}/{{.Architecture}}'
+
+      - name: Start Zebra in Regtest mode with cookie auth
+        run: |
+          set -euo pipefail
+          chmod +x ci/*.sh
+          docker network create "$NETWORK"
+          docker volume create "$COOKIE_VOLUME"
+          docker volume create "$STATE_VOLUME"
+          docker run -d --name zebra --network "$NETWORK" \
+            -v "$COOKIE_VOLUME:/zebra-cookie" \
+            -v "$STATE_VOLUME:/zebra-state" \
+            -v "$PWD/ci/zebra-regtest.toml:/etc/zebra/zebrad.toml:ro" \
+            -e CONFIG_FILE_PATH=/etc/zebra/zebrad.toml \
+            -e ZEBRA_RPC__COOKIE_DIR=/zebra-cookie \
+            -e ZEBRA_STATE__CACHE_DIR=/zebra-state \
+            "$ZEBRA_IMAGE" zebrad start
+
+      - name: Wait for the node's RPC
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 60); do
+            if ci/zebra-rpc.sh zebra getblockcount >/dev/null 2>&1; then
+              echo "node answering after ${i}s"
+              ci/zebra-rpc.sh zebra getblockchaininfo | head -c 400; echo
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "node never answered"; docker logs zebra | tail -n 120; exit 1
+
+      - name: Mine blocks with the regtest generate RPC
+        run: |
+          set -euo pipefail
+          # 40 blocks: enough for the 21-block warmer window to be full, and
+          # enough that the tip is well past the short-chain edge cases.
+          ci/zebra-rpc.sh zebra generate '[40]' > /tmp/generate.json
+          COUNT=$(ci/zebra-rpc.sh zebra getblockcount | sed 's/.*"result":\([0-9]*\).*/\1/')
+          echo "tip height: $COUNT"
+          test "$COUNT" -ge 40
+          echo "TIP=$COUNT" >> "$GITHUB_ENV"
+          # The coinbase transaction of block 1, for the transaction page.
+          ci/zebra-rpc.sh zebra getblock '["1", 1]' > /tmp/block1.json
+          COINBASE=$(python3 -c "import json;print(json.load(open('/tmp/block1.json'))['result']['tx'][0])")
+          echo "coinbase txid at height 1: $COINBASE"
+          echo "COINBASE=$COINBASE" >> "$GITHUB_ENV"
+
+      - name: Start the explorer container against that node
+        run: |
+          set -euo pipefail
+          docker run -d --name explorer --network "$NETWORK" \
+            -p 4000:4000 \
+            -v "$COOKIE_VOLUME:/zebra-cookie:ro" \
+            -e SECRET_KEY_BASE="$(openssl rand -base64 48)" \
+            -e EXPLORER_HOSTNAME=localhost \
+            -e EXPLORER_SCHEME=http \
+            -e EXPLORER_PORT=4000 \
+            -e PORT=4000 \
+            -e ZEBRA_RPC_URL=http://zebra:18232 \
+            -e ZEBRA_COOKIE_PATH=/zebra-cookie/.cookie \
+            -e SWARM_NETWORK_NAME=SwarmTestnet \
+            -e SWARM_TICKER=SWARM \
+            -e SWARM_PROJECT_NAME=SWARM \
+            -e SWARM_WARMER_INTERVAL_MS=3000 \
+            -e SWARM_RECIPIENTS='[{"slot":"ECC","label":"Core Development","address":"t2CoreDevelopmentFixtureAddress0001","percent":8},{"slot":"MajorGrants","label":"Grants & Ecosystem","address":"t2GrantsEcosystemFixtureAddress0002","percent":4},{"slot":"ZcashFoundation","label":"Community & Development Reserve","address":"t2CommunityReserveFixtureAddress003","percent":8}]' \
+            "$IMAGE:ci"
+
+      - name: Wait until the explorer has reached the node
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 90); do
+            BODY=$(curl -sS --max-time 5 http://127.0.0.1:4000/healthz || true)
+            case "$BODY" in
+              *'"node":"ok"'*) echo "explorer healthy after ${i}s: $BODY"; exit 0 ;;
+            esac
+            sleep 1
+          done
+          echo "explorer never reached the node"; docker logs explorer | tail -n 150; exit 1
+
+      - name: Assert the pages
+        run: |
+          set -euo pipefail
+          B=http://127.0.0.1:4000
+          ci/assert-http.sh "$B/healthz" '"status":"ok"' '"network":"SwarmTestnet"'
+          # Home page: branding, the disclaimer, and the SWARM-only tiles.
+          ci/assert-http.sh "$B/" \
+            'SWARM Explorer' \
+            'test coins have no value' \
+            'Next halving at height' \
+            'Supply issued' \
+            'Network solution rate' \
+            'Latest blocks'
+          # Genesis-adjacent block and the tip.
+          ci/assert-http.sh "$B/blocks/1"       'Details for the SWARM block' 'Block reward'
+          ci/assert-http.sh "$B/blocks/$TIP"    'Details for the SWARM block' 'Block reward'
+          # A coinbase transaction.
+          ci/assert-http.sh "$B/transactions/$COINBASE" "$COINBASE" 'coinbase'
+          # The address every coinbase paid.
+          ci/assert-http.sh "$B/address/$MINER_ADDRESS" "$MINER_ADDRESS" 'Balance'
+          # Search by height redirects to that block.
+          ci/assert-http.sh "$B/search?qs=1"    'Details for the SWARM block'
+          # Listings that the warmers feed.
+          ci/assert-http.sh "$B/blocks"         'SWARM'
+          ci/assert-http.sh "$B/mempool"        'SWARM'
+          ci/assert-http.sh "$B/blockchain-info"
+          # Nothing Zebra cannot serve is reachable any more.
+          test "$(curl -s -o /dev/null -w '%{http_code}' $B/payment-disclosure)" = "404"
+          test "$(curl -s -o /dev/null -w '%{http_code}' $B/vk)" = "404"
+          test "$(curl -s -o /dev/null -w '%{http_code}' $B/price)" = "404"
+          echo "all page assertions passed"
+
+      - name: Assert no third-party asset is referenced
+        run: |
+          set -euo pipefail
+          curl -sS http://127.0.0.1:4000/ > /tmp/home.html
+          for host in fonts.googleapis.com fonts.gstatic.com google-analytics.com googletagmanager.com; do
+            if grep -qF "$host" /tmp/home.html; then
+              echo "FAIL: home page references $host"; exit 1
+            fi
+          done
+          echo "ok: no third-party host referenced"
+
+      - name: Measure steady-state memory
+        run: |
+          set -euo pipefail
+          sleep 30
+          docker stats --no-stream --format '{{.Name}} {{.MemUsage}} {{.MemPerc}} {{.CPUPerc}}' explorer zebra | tee /tmp/stats.txt
+          BYTES=$(docker stats --no-stream --format '{{.MemUsage}}' explorer | awk '{print $1}')
+          echo "explorer memory: $BYTES"
+          echo "EXPLORER_MEM=$BYTES" >> "$GITHUB_ENV"
+          python3 - "$BYTES" <<'PY'
+          import re, sys
+          raw = sys.argv[1]
+          units = {"B": 1, "KiB": 1024, "MiB": 1024**2, "GiB": 1024**3, "kB": 1000, "MB": 1000**2, "GB": 1000**3}
+          m = re.match(r"([0-9.]+)([A-Za-z]+)", raw)
+          value = float(m.group(1)) * units[m.group(2)]
+          mib = value / 1024**2
+          print(f"explorer RSS: {mib:.1f} MiB")
+          assert mib < 768, f"explorer uses {mib:.1f} MiB, budget is 768 MiB"
+          PY
+
+      - name: Restart Zebra and prove the explorer survives the cookie rotation
+        run: |
+          set -euo pipefail
+          BEFORE=$(docker exec zebra sha256sum /zebra-cookie/.cookie | cut -d' ' -f1)
+          docker restart zebra
+          for i in $(seq 1 90); do
+            if ci/zebra-rpc.sh zebra getblockcount >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          AFTER=$(docker exec zebra sha256sum /zebra-cookie/.cookie | cut -d' ' -f1)
+          echo "cookie digest before=$BEFORE after=$AFTER"
+          test "$BEFORE" != "$AFTER" || { echo "the cookie did not rotate; the test would prove nothing"; exit 1; }
+
+          # The explorer was never restarted. It must pick the new secret up.
+          ci/zebra-rpc.sh zebra generate '[3]' >/dev/null
+          NEWTIP=$(ci/zebra-rpc.sh zebra getblockcount | sed 's/.*"result":\([0-9]*\).*/\1/')
+          for i in $(seq 1 90); do
+            BODY=$(curl -sS --max-time 5 http://127.0.0.1:4000/healthz || true)
+            case "$BODY" in
+              *"\"height\":$NEWTIP"*) echo "explorer followed the node to height $NEWTIP after ${i}s"; break ;;
+            esac
+            if [ "$i" = "90" ]; then
+              echo "explorer did not recover after the cookie rotated"
+              echo "last /healthz: $BODY"
+              docker logs explorer | tail -n 150
+              exit 1
+            fi
+            sleep 1
+          done
+          ci/assert-http.sh "http://127.0.0.1:4000/blocks/$NEWTIP" 'Details for the SWARM block'
+          ci/assert-http.sh "http://127.0.0.1:4000/" 'Latest blocks'
+
+      - name: Container logs (always)
+        if: always()
+        run: |
+          echo "===== explorer ====="; docker logs explorer 2>&1 | tail -n 200 || true
+          echo "===== zebra ====="; docker logs zebra 2>&1 | tail -n 120 || true
+
+      - name: Check the explorer never logged the cookie secret
+        run: |
+          set -euo pipefail
+          SECRET=$(docker exec zebra sh -c 'cut -d: -f2- /zebra-cookie/.cookie')
+          if docker logs explorer 2>&1 | grep -qF "$SECRET"; then
+            echo "FAIL: the RPC secret appears in the explorer log"; exit 1
+          fi
+          echo "ok: the secret is not in the log"
+
+      # -------------------------------------------------------------------
+      # Artifact for workstream F: the server must not build from source.
+      # No registry push, no GitHub Release.
+      # -------------------------------------------------------------------
+      - name: Save the image as a tarball
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          TAG="$IMAGE:$SHORT_SHA"
+          FILE="dist/swarm-explorer-$SHORT_SHA.tar.gz"
+          docker save "$TAG" | gzip -9 > "$FILE"
+          ID=$(docker image inspect "$TAG" --format '{{.Id}}')
+          SIZE=$(docker image inspect "$TAG" --format '{{.Size}}')
+          ARCH=$(docker image inspect "$TAG" --format '{{.Os}}/{{.Architecture}}')
+          ( cd dist && sha256sum "swarm-explorer-$SHORT_SHA.tar.gz" > SHA256SUMS )
+          python3 - <<PY
+          import json, os, subprocess, datetime
+          manifest = {
+              "image": "$TAG",
+              "git_sha": "$GITHUB_SHA",
+              "git_ref": "$GITHUB_REF",
+              "git_short_sha": "$SHORT_SHA",
+              "image_id": "$ID",
+              "image_size_bytes": int("$SIZE"),
+              "platform": "$ARCH",
+              "tarball": os.path.basename("$FILE"),
+              "tarball_size_bytes": os.path.getsize("$FILE"),
+              "built_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              "workflow_run": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+              "explorer_memory_steady_state": "$EXPLORER_MEM",
+              "load_with": "gunzip -c " + os.path.basename("$FILE") + " | docker load",
+          }
+          with open("dist/image-manifest.json", "w") as fh:
+              json.dump(manifest, fh, indent=2)
+          print(json.dumps(manifest, indent=2))
+          PY
+          ls -la dist
+          cat dist/SHA256SUMS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: swarm-explorer-image-${{ github.sha }}
+          path: dist/
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Tear down
+        if: always()
+        run: |
+          docker rm -f explorer zebra 2>/dev/null || true
+          docker network rm "$NETWORK" 2>/dev/null || true
+          docker volume rm "$COOKIE_VOLUME" "$STATE_VOLUME" 2>/dev/null || true

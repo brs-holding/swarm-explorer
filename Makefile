@@ -1,24 +1,21 @@
-DOCKER_IMAGE_NAME = zbe
-DOCKER_CONTAINER_NAME = zbe
-DOCKER_GHCR_IMAGE_NAME = ghcr.io/nighthawk-apps/zcash-explorer
+IMAGE ?= brs-swarm-explorer
+TAG   ?= dev
 
-.PHONY: docker_build docker_run docker_clean docker_publish
+.PHONY: build run save clean
 
-# Build the Docker image
-docker_build:
-	docker build -t $(DOCKER_IMAGE_NAME) .
+# Build the production image. CI builds the same thing with
+# --platform linux/amd64 and publishes the tarball; nothing is pushed to a
+# registry and no release is created.
+build:
+	docker build --platform linux/amd64 -t $(IMAGE):$(TAG) .
 
-# Run the Docker container
-docker_run:
-	docker run -d --name $(DOCKER_CONTAINER_NAME) $(DOCKER_IMAGE_NAME)
+run:
+	docker run --rm -p 4000:4000 --env-file .env $(IMAGE):$(TAG)
 
-# Clean Docker resources (stop and remove the container, remove the image)
-docker_clean:
-	-docker stop $(DOCKER_CONTAINER_NAME)
-	-docker rm $(DOCKER_CONTAINER_NAME)
-	-docker rmi $(DOCKER_IMAGE_NAME)
+# The artifact workstream F loads with: gunzip -c <file> | docker load
+save: build
+	docker save $(IMAGE):$(TAG) | gzip -9 > swarm-explorer-$(TAG).tar.gz
+	sha256sum swarm-explorer-$(TAG).tar.gz > SHA256SUMS
 
-# Publish the Docker image to GitHub Container Registry
-docker_publish:
-	docker tag $(DOCKER_IMAGE_NAME) $(DOCKER_GHCR_IMAGE_NAME)
-	docker push $(DOCKER_GHCR_IMAGE_NAME)
+clean:
+	-docker rmi $(IMAGE):$(TAG)

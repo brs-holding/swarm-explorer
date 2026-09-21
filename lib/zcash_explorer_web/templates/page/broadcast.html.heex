@@ -1,6 +1,6 @@
 <div class="mx-8">
 <h3 class="text-lg leading-6 font-medium text-gray-900 py-3 dark:text-white">
-    Broadcast Zcash Transaction
+    Broadcast <%= @project_name %> transaction
 </h3>
 <%= if get_flash(@conn, :error) do %>
 <div class="rounded-md bg-red-50 p-4">
@@ -70,7 +70,7 @@
 <form class="space-y-8" action="/broadcast" method="post">
     <div class="space-y-8  divide-slate-400 sm:space-y-5">
     <p class="mt-1 mb-2 max-w-2xl text-sm text-gray-600 dark:text-slate-50">
-          Paste the raw transaction here in hex format to broadcast it over the Zcash network.
+          Paste the raw transaction here in hex format to broadcast it over the <%= @network_name %> network.
     </p>
   <input type="hidden" value={@csrf_token} name="_csrf_token"/>
   <textarea id="broadcast" name="tx-hex" rows="22" class="w-full  shadow-sm  bg-slate-400/5  sm:text-sm border border-gray-300 rounded-md font-mono text-green-400 ">

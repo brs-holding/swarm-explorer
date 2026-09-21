@@ -13,7 +13,7 @@ defmodule ZcashExplorerWeb.RecentBlocksLive do
                 <th scope="col" class="px-4 py-3">Mined on</th>
                 <th scope="col" class="px-4 py-3">Txns</th>
                 <th scope="col" class="px-4 py-3">Size</th>
-                <th scope="col" class="px-4 py-3">Output ( <%= if @chain == "main", do: "ZEC", else: "TAZ" %> )
+                <th scope="col" class="px-4 py-3">Output ( <%= @ticker %> )
                 </th>
             </tr>
             </thead>
@@ -56,13 +56,12 @@ defmodule ZcashExplorerWeb.RecentBlocksLive do
 
     case ZcashExplorer.Cache.fetch("block_cache") do
       {:ok, info} ->
-        chain = ZcashExplorer.Cache.field("metrics", "chain")
-        {:ok, assign(socket, block_cache: info, chain: chain)}
+        {:ok, assign(socket, block_cache: info, ticker: ZcashExplorer.Swarm.ticker())}
 
       {:error, _reason} ->
         # The template iterates this assign, so a cold cache has to fall back to
         # an empty list; "loading..." raised Protocol.UndefinedError on /mempool.
-        {:ok, assign(socket, :block_cache, [])}
+        {:ok, assign(socket, block_cache: [], ticker: ZcashExplorer.Swarm.ticker())}
     end
   end
 

@@ -1,4 +1,6 @@
 defmodule ZcashExplorerWeb.AddressController do
+  alias ZcashExplorer.Rpc
+  alias ZcashExplorer.Swarm
   use ZcashExplorerWeb, :controller
 
   @tx_page_size 20
@@ -7,8 +9,19 @@ defmodule ZcashExplorerWeb.AddressController do
   # they must be routed away before any of the t-addr RPC calls below. These
   # used to be an `if` inside the transparent clauses whose `render/3` result
   # was discarded, so a z-addr fell through and crashed getaddressbalance/1.
+  #
+  # SWARM change: upstream only matched the mainnet prefixes "zc", "zs" and "u".
+  # SwarmTestnet uses testnet human-readable parts, so a Sapling address starts
+  # "ztestsapling" and a unified address "utest". Transparent addresses are "tm"
+  # (P2PKH) and "t2" (P2SH) and fall through to the transparent clauses below.
+  def get_address(conn, %{"address" => "ztestsapling" <> _ = address}),
+    do: render_z_address(conn, address)
+
   def get_address(conn, %{"address" => "zc" <> _ = address}), do: render_z_address(conn, address)
   def get_address(conn, %{"address" => "zs" <> _ = address}), do: render_z_address(conn, address)
+
+  def get_address(conn, %{"address" => "utest" <> _ = address}),
+    do: get_ua(conn, %{"address" => address})
 
   def get_address(conn, %{"address" => "u" <> _ = address}),
     do: get_ua(conn, %{"address" => address})
@@ -27,33 +40,39 @@ defmodule ZcashExplorerWeb.AddressController do
     render_address(conn, address, latest_block - @tx_page_size, latest_block)
   end
 
-  def get_ua(conn, %{"address" => "u" <> _ = ua}) do
-    case Zcashex.z_listunifiedreceivers(ua) do
-      {:ok, details} ->
-        render(conn, "u_address.html",
-          address: ua,
-          qr: qr(ua),
-          page_title: "Zcash Unified Address",
-          orchard_present: Map.has_key?(details, "orchard"),
-          transparent_present: Map.has_key?(details, "p2pkh"),
-          sapling_present: Map.has_key?(details, "sapling"),
-          details: details
-        )
+  def get_ua(conn, %{"address" => address}) when is_binary(address) do
+    if unified?(address) do
+      case Rpc.z_listunifiedreceivers(address) do
+        {:ok, details} ->
+          render(conn, "u_address.html",
+            address: address,
+            qr: qr(address),
+            page_title: "#{Swarm.project_name()} unified address",
+            orchard_present: Map.has_key?(details, "orchard"),
+            transparent_present: Map.has_key?(details, "p2pkh"),
+            sapling_present: Map.has_key?(details, "sapling"),
+            details: details
+          )
 
-      {:error, _reason} ->
-        invalid_address(conn, ua)
+        {:error, _reason} ->
+          invalid_address(conn, address)
+      end
+    else
+      invalid_address(conn, address)
     end
   end
 
-  def get_ua(conn, %{"address" => address}), do: invalid_address(conn, address)
+  defp unified?("utest" <> _), do: true
+  defp unified?("u" <> _), do: true
+  defp unified?(_), do: false
 
   defp render_address(conn, address, s, e) do
     latest_block = latest_block()
     # if requesting for a block that's not yet mined, cap the request to the latest block
     capped_e = min(e, latest_block)
 
-    with {:ok, balance} <- Zcashex.getaddressbalance(address),
-         {:ok, txids} <- Zcashex.getaddresstxids(address, max(s, 0), capped_e) do
+    with {:ok, balance} <- Rpc.getaddressbalance(address),
+         {:ok, txids} <- Rpc.getaddresstxids(address, max(s, 0), capped_e) do
       render(conn, "address.html",
         address: address,
         balance: balance,
@@ -63,7 +82,10 @@ defmodule ZcashExplorerWeb.AddressController do
         start_block: s,
         latest_block: latest_block,
         capped_e: capped_e,
-        page_title: "Zcash Address #{address}"
+        # SWARM change: badge the three block-reward destinations, which are
+        # supplied by configuration rather than hard-coded here.
+        allocation: Swarm.recipient_for_address(address),
+        page_title: "#{Swarm.project_name()} address #{address}"
       )
     else
       {:error, _reason} -> invalid_address(conn, address)
@@ -74,7 +96,7 @@ defmodule ZcashExplorerWeb.AddressController do
     render(conn, "z_address.html",
       address: address,
       qr: qr(address),
-      page_title: "Zcash Shielded Address"
+      page_title: "#{Swarm.project_name()} shielded address"
     )
   end
 
@@ -82,7 +104,7 @@ defmodule ZcashExplorerWeb.AddressController do
   # the sum has to come from "valueZat", not the ZEC-denominated "value".
   defp fetch_txs(txids, address) do
     Enum.flat_map(txids, fn txid ->
-      case Zcashex.getrawtransaction(txid, 1) do
+      case Rpc.getrawtransaction(txid, 1) do
         {:ok, tx} -> [Map.put(tx, "satoshis", received_zat(tx, address))]
         {:error, _reason} -> []
       end

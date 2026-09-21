@@ -1,4 +1,5 @@
 defmodule ZcashExplorer.Metrics.NetworkSolpsWarmer do
+  alias ZcashExplorer.Rpc
   use Cachex.Warmer
   require Logger
 
@@ -12,7 +13,7 @@ defmodule ZcashExplorer.Metrics.NetworkSolpsWarmer do
   Executes this cache warmer.
   """
   def execute(_state) do
-    Zcashex.getnetworksolps() |> handle_result()
+    Rpc.getnetworksolps() |> handle_result()
   end
 
   # ignores the warmer result in case of error

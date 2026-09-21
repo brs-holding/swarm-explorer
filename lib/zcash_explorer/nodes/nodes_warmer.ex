@@ -1,4 +1,5 @@
 defmodule ZcashExplorer.Nodes.NodeWarmer do
+  alias ZcashExplorer.Rpc
   use Cachex.Warmer
   require Logger
 
@@ -12,7 +13,7 @@ defmodule ZcashExplorer.Nodes.NodeWarmer do
   Executes this cache warmer.
   """
   def execute(_state) do
-    Zcashex.getpeerinfo() |> handle_result()
+    Rpc.getpeerinfo() |> handle_result()
   end
 
   # ignores the warmer result in case of error

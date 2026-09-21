@@ -3,14 +3,14 @@
   <div class="col-span-3 md:col-span-1 lg:col-span-1 sm:col-span-3">
     <div class="bg-white px-4 py-5 shadow rounded-lg sm:px-6 sticky top-10 dark:bg-gray-800">
 
-<h2 id="technical-details" class="font-medium text-gray-900 dark:text-white">Details for the Zcash address:
+<h2 id="technical-details" class="font-medium text-gray-900 dark:text-white">Details for the <%= @project_name %> address:
 </h2>
     <p class="mt-1 text-lg leading-6 max-w-2xl  text-gray-500 font-mono break-words dark:text-100">
       <%= @address %>
     </p>
    <div class="flex flex-row py-2">
    <div class="px-0 dark:bg-gray-400	">
-           <img src={"data:image/png;base64, #{ @qr }"} atl={"QR code for the Zcash address #{ @address }"}/>
+           <img src={"data:image/png;base64, #{ @qr }"} atl={"QR code for the address #{ @address }"}/>
     </div>
   </div>
 

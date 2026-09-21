@@ -1,0 +1,12 @@
+# Keep every text file LF in the repository and in the container image. The
+# fork is developed on Windows, where git would otherwise commit CRLF for new
+# files, and a CRLF shell script fails on Linux with "bad interpreter".
+* text=auto eol=lf
+*.sh text eol=lf
+Makefile text eol=lf
+Dockerfile text eol=lf
+
+# Binary
+*.png binary
+*.ico binary
+*.jpg binary

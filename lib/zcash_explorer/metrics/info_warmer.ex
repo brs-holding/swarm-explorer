@@ -1,4 +1,5 @@
 defmodule ZcashExplorer.Metrics.InfoWarmer do
+  alias ZcashExplorer.Rpc
   use Cachex.Warmer
   require Logger
 
@@ -12,7 +13,7 @@ defmodule ZcashExplorer.Metrics.InfoWarmer do
   Executes this cache warmer.
   """
   def execute(_state) do
-    Zcashex.getinfo() |> handle_result()
+    Rpc.getinfo() |> handle_result()
   end
 
   # ignores the warmer result in case of error

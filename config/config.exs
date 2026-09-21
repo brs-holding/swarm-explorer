@@ -7,9 +7,6 @@
 # General application configuration
 import Config
 
-config :zcash_explorer,
-  ecto_repos: [ZcashExplorer.Repo]
-
 # Configures the endpoint
 config :zcash_explorer, ZcashExplorerWeb.Endpoint,
   url: [host: "localhost"],
@@ -17,6 +14,25 @@ config :zcash_explorer, ZcashExplorerWeb.Endpoint,
   render_errors: [view: ZcashExplorerWeb.ErrorView, accepts: ~w(html json), layout: false],
   pubsub_server: ZcashExplorer.PubSub,
   live_view: [signing_salt: "a4lss9+vZQHOxErTzxjNU4IuhAaslE0Z"]
+
+# SWARM defaults. Every one of these is overridden from the environment at
+# runtime (see config/runtime.exs and README-SWARM.md); the values here are the
+# figures in specs/ECONOMICS.md v0.4 so a development run is already correct.
+config :zcash_explorer, ZcashExplorer.Swarm,
+  project_name: "SWARM",
+  network_name: "SwarmTestnet",
+  ticker: "SWARM",
+  max_supply: 20_999_987.3152,
+  halving_interval: 1_680_000,
+  block_target_seconds: 75,
+  recipients: []
+
+config :zcash_explorer, ZcashExplorer.Rpc,
+  url: "http://127.0.0.1:18232",
+  cookie_path: nil,
+  username: nil,
+  password: nil,
+  timeout: 120_000
 
 # Configures Elixir's Logger
 config :logger, :console,

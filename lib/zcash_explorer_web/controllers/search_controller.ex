@@ -1,4 +1,5 @@
 defmodule ZcashExplorerWeb.SearchController do
+  alias ZcashExplorer.Rpc
   use ZcashExplorerWeb, :controller
 
   def search(conn, %{"qs" => qs}) do
@@ -11,10 +12,10 @@ defmodule ZcashExplorerWeb.SearchController do
     # If zcashd responds that a resource is valid, we redirect the user
     # to the appropriate resource view or redirect them to an error view.
     tasks = [
-      Task.async(fn -> Zcashex.getblock(qs, 0) end),
-      Task.async(fn -> Zcashex.getrawtransaction(qs, 0) end),
-      Task.async(fn -> Zcashex.validateaddress(qs) end),
-      Task.async(fn -> Zcashex.z_validateaddress(qs) end)
+      Task.async(fn -> Rpc.getblock(qs, 0) end),
+      Task.async(fn -> Rpc.getrawtransaction(qs, 0) end),
+      Task.async(fn -> Rpc.validateaddress(qs) end),
+      Task.async(fn -> Rpc.z_validateaddress(qs) end)
     ]
 
     # order in which the tasks are above defined matters. A task that neither

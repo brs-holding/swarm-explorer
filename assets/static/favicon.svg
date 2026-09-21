@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-labelledby="swarm-favicon-title">
+  <title id="swarm-favicon-title">SWARM</title>
+  <defs>
+    <clipPath id="fav-body-clip">
+      <path d="M32 15.5 L45.856 23.5 L45.856 39.5 L32 47.5 L18.144 39.5 L18.144 23.5 Z"/>
+    </clipPath>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#0E1116"/>
+  <g transform="translate(32 32) scale(0.86) translate(-32 -32)">
+    <path d="M28.8 44 L35.2 44 L32 51.3 Z" fill="#E8890C"/>
+    <g fill="#FFC94D" opacity="0.95">
+      <path d="M16.6 12.8 L24.221 17.2 L24.221 26 L16.6 30.4 L8.979 26 L8.979 17.2 Z" transform="rotate(-20 16.6 21.6)"/>
+      <path d="M47.4 12.8 L55.021 17.2 L55.021 26 L47.4 30.4 L39.779 26 L39.779 17.2 Z" transform="rotate(20 47.4 21.6)"/>
+    </g>
+    <path d="M32 15.5 L45.856 23.5 L45.856 39.5 L32 47.5 L18.144 39.5 L18.144 23.5 Z" fill="#F5A623"/>
+    <g clip-path="url(#fav-body-clip)" fill="#0E1116">
+      <rect x="16" y="21.3" width="32" height="4.8"/>
+      <rect x="16" y="33.9" width="32" height="4.8"/>
+    </g>
+  </g>
+</svg>
