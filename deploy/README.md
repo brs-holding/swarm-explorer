@@ -156,8 +156,13 @@ the live tiles will be rejected while ordinary page loads still work.
   follows the node to a new height.
 * **Memory.** The image pins the BEAM to two schedulers (`+S 2:2`) because the
   BEAM otherwise sizes its pool from the host's core count and not the
-  container's CPU quota. The measured steady-state figure from the CI run is in
-  `image-manifest.json`.
+  container's CPU quota. **Measured in CI: 140.9 MiB** resident, steady state,
+  on a 43-block Regtest chain with the warmers running at a 3-second interval
+  (run 35625581972). The compose snippet caps the container at 768 MB. The
+  figure for the run that produced the tarball you are deploying is in
+  `image-manifest.json` under `explorer_memory_steady_state`; a long chain with
+  real traffic will sit higher, so watch it rather than assuming this number.
+  The image itself is 51.4 MB, and the gzipped tarball about 20 MB.
 * **Logs.** `LOG_LEVEL=debug` writes a stack trace and every request's params.
   Upstream shipped with it on and the container log reached 7.2 GB unrotated.
   Leave it at `info` and set a log rotation policy on the daemon.

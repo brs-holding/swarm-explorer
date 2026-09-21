@@ -201,7 +201,17 @@ ZEBRA_COOKIE_PATH=$HOME/.cache/zebra/.cookie \
    an address page, and search by height.
 5. The Zebra container is **restarted**, which rotates the cookie, and the
    explorer — not restarted — must follow the node to a new height.
-6. The image is saved as a tarball artifact for workstream F. See `deploy/`.
+6. Steady-state container memory is measured and the job fails above 768 MiB.
+7. The image is saved as a tarball artifact for workstream F. See `deploy/`.
+
+Proven on run
+[35625581972](https://github.com/brs-holding/swarm-explorer/actions/runs/35625581972):
+56 tests, home page, block 1, the tip, a coinbase transaction, the miner's
+address, search by height, `/blocks`, `/mempool` and `/blockchain-info` all
+200; `/payment-disclosure`, `/vk` and `/price` all 404; no third-party host in
+the markup; the RPC secret absent from the container log; 140.9 MiB resident;
+and, after restarting the node so its cookie rotated, the untouched explorer
+followed the chain to a new height in 8 seconds.
 
 Regtest cannot carry funding streams, so the reward breakdown is covered by
 `test/swarm/block_reward_test.exs` against a recorded `getblocksubsidy` reply
