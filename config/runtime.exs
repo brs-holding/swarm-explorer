@@ -98,14 +98,19 @@ if config_env() == :prod do
       String.to_integer(System.get_env("SWARM_BLOCK_TARGET_SECONDS") || "75"),
     recipients: recipients
 
+  # Unset means "derive it from the block target"; see
+  # ZcashExplorer.WarmerWindow. Computed into a variable because a multi-line
+  # `case` cannot be the value of a keyword in a parenthesis-less call.
+  warmer_interval_ms =
+    case System.get_env("SWARM_WARMER_INTERVAL_MS") do
+      nil -> nil
+      "" -> nil
+      value -> String.to_integer(value)
+    end
+
   config :zcash_explorer, ZcashExplorer.WarmerWindow,
     window: String.to_integer(System.get_env("SWARM_WARMER_WINDOW") || "21"),
-    interval_ms:
-      case System.get_env("SWARM_WARMER_INTERVAL_MS") do
-        nil -> nil
-        "" -> nil
-        value -> String.to_integer(value)
-      end
+    interval_ms: warmer_interval_ms
 
   IO.puts(
     "SWARM explorer configured for #{System.get_env("SWARM_NETWORK_NAME", "SwarmTestnet")} " <>
