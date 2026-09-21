@@ -41,41 +41,12 @@
                 Tx Type
                 </dt>
                 <dd class="mt-1 text-sm text-gray-900">
-                <%= if ZcashExplorerWeb.BlockView.tx_type(@tx) == "coinbase" do %>
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-s font-medium bg-yellow-400 text-gray-900 capitalize">
-                  💰 Coinbase
+                <span class={ZcashExplorerWeb.BlockView.tx_state_class(@tx)}>
+                  <%= ZcashExplorerWeb.BlockView.tx_state_label(@tx) %>
                 </span>
-                <% end %>
-                <%= if ZcashExplorerWeb.BlockView.tx_type(@tx) == "shielded" do %>
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-s font-medium bg-green-200 text-gray-900 capitalize">
-                  🛡 Shielded
+                <span class="sw-mono block mt-1 text-[10.5px]" style="color:var(--sw-dim);">
+                  <%= ZcashExplorerWeb.BlockView.tx_type(@tx) %>
                 </span>
-                <% end %>
-                <%= if ZcashExplorerWeb.BlockView.tx_type(@tx) == "transparent" do %>
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-s font-medium bg-red-200 text-gray-900 capitalize">
-                  🔍 Public
-                </span>
-                <% end %>
-                <%= if ZcashExplorerWeb.BlockView.tx_type(@tx) == "shielding" do %>
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-s font-medium bg-red-50 text-gray-900 capitalize">
-                  Shielding ( T-Z )
-                </span>
-                <% end %>
-                <%= if ZcashExplorerWeb.BlockView.tx_type(@tx) == "deshielding" do %>
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-s font-medium bg-red-50 text-gray-900 capitalize">
-                  Deshielding ( Z-T )
-                </span>
-                <% end %>
-                <%= if ZcashExplorerWeb.BlockView.tx_type(@tx) == "mixed" do %>
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-s font-medium bg-gray-200 text-gray-900 capitalize">
-                  Mixed
-                </span>
-                <% end %>
-                <%= if ZcashExplorerWeb.BlockView.tx_type(@tx) == "unknown" do %>
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-s font-medium bg-gray-200 text-gray-900 capitalize">
-                  Unknown
-                </span>
-                <% end %>
                 </dd>
               </div>
               <div class="sm:col-span-1">

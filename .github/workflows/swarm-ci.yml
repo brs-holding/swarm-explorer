@@ -176,7 +176,7 @@ jobs:
           ci/assert-http.sh "$B/blocks/1"       'Details for the SWARM block' 'BLOCK REWARD'
           ci/assert-http.sh "$B/blocks/$TIP"    'Details for the SWARM block' 'BLOCK REWARD' 'COINBASE'
           # A coinbase transaction.
-          ci/assert-http.sh "$B/transactions/$COINBASE" "$COINBASE" 'coinbase'
+          ci/assert-http.sh "$B/transactions/$COINBASE" "$COINBASE" 'COINBASE' 'Confirmations'
           # The address every coinbase paid.
           ci/assert-http.sh "$B/address/$MINER_ADDRESS" "$MINER_ADDRESS" 'Balance'
           # Search by height redirects to that block.
