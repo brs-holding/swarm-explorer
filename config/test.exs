@@ -2,7 +2,15 @@ import Config
 
 # We don't run a server during test. If one is required,
 # you can enable the server option below.
+#
+# SWARM change: as in config/dev.exs, the Phoenix secrets are set per
+# environment rather than in config/config.exs, so nothing reaches a release.
+# Throwaway values; the suite only needs them to be present and well formed.
+config :zcash_explorer, :session_options, signing_salt: "GPQxst0hy0qIgLjM"
+
 config :zcash_explorer, ZcashExplorerWeb.Endpoint,
+  secret_key_base: "jdLWvMdkp8qJW68Wt0QQ3pdGQo+xYJayOqLt5nUG+UbiGD6W3vZvcrx/1iEsAy0K",
+  live_view: [signing_salt: "PdFWfbOrGbEPVkEK"],
   http: [port: 4002],
   server: false
 

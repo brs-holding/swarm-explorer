@@ -142,3 +142,47 @@ explaining the reason at the point of the change.
      a tarball artifact.
    - Renamed ".env.example " (with a trailing space) to ".env.example", which
      is what made the repository impossible to check out on Windows.
+
+9. Phoenix secrets are read from the environment, never compiled in
+   - config/config.exs set secret_key_base and the LiveView signing_salt, and
+     lib/zcash_explorer_web/endpoint.ex set the session signing_salt in a
+     module attribute. All three are compile-time, so every build of this fork
+     froze upstream's published development values into the release's
+     sys.config and into the beam, where whoever ran the image could not
+     replace them.
+   - config/runtime.exs now reads SECRET_KEY_BASE, SESSION_SIGNING_SALT and
+     LIVE_VIEW_SIGNING_SALT on every boot and raises when one is missing or
+     empty, so a misconfigured deployment stops instead of quietly signing with
+     a value published in a public repository. Throwaway values for a local run
+     live in config/dev.exs and config/test.exs, which no release reads.
+   - The endpoint's session options moved into ZcashExplorerWeb.Endpoint
+     .session_options/0, which the session plug and the LiveView socket both
+     read, so the two cannot drift apart.
+   - ci/check-release-secrets.py decodes Erlang byte runs and compares as
+     bytes, because the salt appears in sys.config as <<97,52,...>> and a grep
+     for its text finds nothing there — which reads like evidence of absence
+     and is not. CI runs it against the sys.config inside the image it just
+     built, and proves the image refuses to start with any one of the three
+     variables missing.
+
+10. Search routing
+   - The search box asked the node four questions in parallel and redirected to
+     whichever answered first, block first. A failed call decoded as a
+     successful nil (see below), so every query was sent to /blocks/<query>: a
+     transparent address reached the block page, which cannot parse one, and
+     the visitor got HTTP 500. On this chain the three published allocation
+     addresses are the likeliest thing anyone searches for.
+   - ZcashExplorer.Rpc.decode/1 matched {"result": ..., "error": %{}} meaning
+     "an empty error object", but %{} in a pattern matches any map, so Zebra's
+     error replies were reported to callers as {:ok, nil}. It now tests the
+     map's size, and an error reply is an error at every call site.
+   - ZcashExplorerWeb.SearchController classifies a query by shape, which needs
+     no node: digits are a height, 64 hex characters are a block hash or a
+     transaction id (the one case the node is still asked to resolve), and the
+     transparent, shielded and unified prefixes go to their own pages. The
+     charset is checked as well as the prefix, because the query reaches a
+     Location header.
+   - Anything unrecognised renders a not-found page
+     (templates/error/invalid_input.html.heex) that says what the box accepts.
+     It replaced the string "Invalid input", and the block and address routes
+     render it too, so no search can end in a 500.

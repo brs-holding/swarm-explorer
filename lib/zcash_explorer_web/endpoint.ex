@@ -1,20 +1,38 @@
 defmodule ZcashExplorerWeb.Endpoint do
   use Phoenix.Endpoint, otp_app: :zcash_explorer
 
-  # The session will be stored in the cookie and signed,
-  # this means its contents can be read but not tampered with.
-  # Set :encryption_salt if you would also like to encrypt it.
+  # The session is stored in the cookie and signed, so its contents can be read
+  # but not tampered with.
+  #
+  # SWARM change: the signing salt is no longer a literal in this module. A
+  # module attribute is compile-time, so upstream's value was frozen into the
+  # release exactly like the two in config/config.exs were, and nobody running
+  # the image could replace it. Everything that is not a secret stays here; the
+  # salt comes from the application environment, which config/runtime.exs fills
+  # from SESSION_SIGNING_SALT on every boot (and config/dev.exs and
+  # config/test.exs give a throwaway local value).
   @session_options [
     store: :cookie,
-    key: "_swarm_explorer_key",
-    signing_salt: "vsjpf7KS"
+    key: "_swarm_explorer_key"
   ]
+
+  @doc """
+  The session options, resolved at runtime.
+
+  Both `Plug.Session` below and the LiveView socket read the session through
+  this one function, so the salt they use can never drift apart. Phoenix
+  resolves the socket's `{module, function, args}` form per connection.
+  """
+  def session_options do
+    Keyword.merge(@session_options, Application.get_env(:zcash_explorer, :session_options, []))
+  end
 
   socket "/socket", ZcashExplorerWeb.UserSocket,
     websocket: true,
     longpoll: false
 
-  socket "/live", Phoenix.LiveView.Socket, websocket: [connect_info: [session: @session_options]]
+  socket "/live", Phoenix.LiveView.Socket,
+    websocket: [connect_info: [session: {__MODULE__, :session_options, []}]]
 
   # Serve at "/" the static files from "priv/static" directory.
   #
@@ -44,7 +62,12 @@ defmodule ZcashExplorerWeb.Endpoint do
 
   plug Plug.MethodOverride
   plug Plug.Head
-  plug Plug.Session, @session_options
+  # A function plug rather than `plug Plug.Session, @session_options`: the
+  # endpoint's plugs are initialised at compile time in :prod, which would
+  # capture the salt again.
+  plug :session
   plug ZcashExplorerWeb.Plugs.ConfigInjector
   plug ZcashExplorerWeb.Router
+
+  defp session(conn, _opts), do: Plug.Session.call(conn, Plug.Session.init(session_options()))
 end

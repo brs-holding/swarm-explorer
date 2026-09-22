@@ -5,10 +5,17 @@ defmodule ZcashExplorerWeb.BlockController do
 
   @default_limit 20
 
+  # SWARM change: `{:ok, block}` is only trusted when the node actually sent a
+  # block. It used to match anything, and a failed call that decoded as
+  # `{:ok, nil}` reached the template, where iterating nil's transaction list
+  # raised — the HTTP 500 behind the transparent-address search defect. The
+  # decoder no longer produces that shape and the search box no longer sends an
+  # address here, so this is the third and last line of defence: whatever the
+  # node says, an unparseable /blocks/<anything> is a 404 page.
   def get_block(conn, %{"hash" => hash}) do
     case Rpc.getblock(hash, 1) do
-      {:ok, basic_block_data} -> render_block(conn, hash, basic_block_data)
-      {:error, _reason} -> not_found(conn, hash)
+      {:ok, %{} = basic_block_data} -> render_block(conn, hash, basic_block_data)
+      _ -> block_not_found(conn, hash)
     end
   end
 
@@ -30,7 +37,7 @@ defmodule ZcashExplorerWeb.BlockController do
     txs = basic_block_data["tx"] || []
 
     with true <- length(txs) in 1..250,
-         {:ok, block_data} <- Rpc.getblock(hash, 2) do
+         {:ok, %{} = block_data} <- Rpc.getblock(hash, 2) do
       block_data = Zcashex.Block.from_map(block_data)
 
       render(conn, "index.html",
@@ -163,5 +170,15 @@ defmodule ZcashExplorerWeb.BlockController do
     |> put_status(:not_found)
     |> put_view(ZcashExplorerWeb.ErrorView)
     |> render(:"404", subject: subject)
+  end
+
+  # A height or hash the node does not have. The same page the search box
+  # shows, so a visitor who followed a stale link is told what this explorer
+  # can look up rather than being handed the word "Not Found".
+  defp block_not_found(conn, hash) do
+    conn
+    |> put_status(:not_found)
+    |> put_view(ZcashExplorerWeb.ErrorView)
+    |> render(:invalid_input, query: hash, page_title: "Nothing found")
   end
 end

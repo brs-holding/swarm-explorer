@@ -55,6 +55,14 @@ jobs:
       - name: Test
         run: mix test
 
+      # Also run in the image job against the sys.config that actually ships.
+      # Here it guards the source tree, so a literal cannot come back.
+      - name: No upstream development secret anywhere in the source
+        run: |
+          set -euo pipefail
+          python3 ci/check-release-secrets.py --self-test
+          python3 ci/check-release-secrets.py lib config
+
   # ---------------------------------------------------------------------------
   # 2. Build the image, prove it against a real Zebra node, publish the tarball
   # ---------------------------------------------------------------------------
@@ -79,6 +87,64 @@ jobs:
           docker build --platform linux/amd64 \
             -t "$IMAGE:$SHA" -t "$IMAGE:ci" .
           docker image inspect "$IMAGE:$SHA" --format '{{.Id}} {{.Size}} {{.Os}}/{{.Architecture}}'
+
+      # -------------------------------------------------------------------
+      # The image must carry no Phoenix secret, and must refuse to run
+      # without one. Checked before the node is even started: if this fails
+      # the image is not fit to publish and the rest proves nothing.
+      # -------------------------------------------------------------------
+      - name: No compiled-in secret in the release
+        run: |
+          set -euo pipefail
+          python3 ci/check-release-secrets.py --self-test
+
+          mkdir -p /tmp/release
+          docker run --rm --entrypoint sh "$IMAGE:ci" \
+            -c 'tar -cf - releases lib/zcash_explorer-*' > /tmp/release.tar
+          tar -xf /tmp/release.tar -C /tmp/release
+          find /tmp/release -name sys.config -print
+
+          # The key rule is for sys.config alone: `signing_salt` is an ordinary
+          # atom inside Phoenix's and Plug's own beam files.
+          python3 ci/check-release-secrets.py \
+            --forbid-key secret_key_base \
+            --forbid-key signing_salt \
+            --forbid-key encryption_salt \
+            /tmp/release/releases/*/sys.config
+
+          # Byte comparison over the whole application: sys.config, the boot
+          # scripts, the runtime config and every beam this fork compiles.
+          python3 ci/check-release-secrets.py /tmp/release
+
+      - name: The image refuses to boot with a Phoenix secret missing
+        run: |
+          set -uo pipefail
+          declare -A value=(
+            [SECRET_KEY_BASE]="$(openssl rand -base64 48)"
+            [SESSION_SIGNING_SALT]="$(openssl rand -base64 48)"
+            [LIVE_VIEW_SIGNING_SALT]="$(openssl rand -base64 48)"
+          )
+
+          for missing in SECRET_KEY_BASE SESSION_SIGNING_SALT LIVE_VIEW_SIGNING_SALT; do
+            args=()
+            for name in "${!value[@]}"; do
+              [ "$name" = "$missing" ] && continue
+              args+=(-e "$name=${value[$name]}")
+            done
+
+            out=$(timeout 90 docker run --rm "${args[@]}" "$IMAGE:ci" 2>&1)
+            status=$?
+            echo "--- without $missing: exit $status"
+            echo "$out" | tail -n 8
+
+            if [ "$status" -eq 0 ]; then
+              echo "FAIL: the image started without $missing"; exit 1
+            fi
+            if ! echo "$out" | grep -qF "$missing"; then
+              echo "FAIL: the failure did not name $missing"; exit 1
+            fi
+          done
+          echo "ok: every missing secret stops the boot, by name"
 
       - name: Start Zebra in Regtest mode with cookie auth
         run: |
@@ -132,6 +198,8 @@ jobs:
             -p 4000:4000 \
             -v "$COOKIE_VOLUME:/zebra-cookie:ro" \
             -e SECRET_KEY_BASE="$(openssl rand -base64 48)" \
+            -e SESSION_SIGNING_SALT="$(openssl rand -base64 48)" \
+            -e LIVE_VIEW_SIGNING_SALT="$(openssl rand -base64 48)" \
             -e EXPLORER_HOSTNAME=localhost \
             -e EXPLORER_SCHEME=http \
             -e EXPLORER_PORT=4000 \
@@ -190,6 +258,65 @@ jobs:
           test "$(curl -s -o /dev/null -w '%{http_code}' $B/vk)" = "404"
           test "$(curl -s -o /dev/null -w '%{http_code}' $B/price)" = "404"
           echo "all page assertions passed"
+
+      # -------------------------------------------------------------------
+      # The search box, against a real node. Searching a transparent address
+      # used to redirect to /blocks/<address>, which returned HTTP 500.
+      # -------------------------------------------------------------------
+      - name: Assert the search box sends every kind of query to the right page
+        run: |
+          set -euo pipefail
+          chmod +x ci/assert-redirect.sh
+          B=http://127.0.0.1:4000
+          # /tmp/block1.json was fetched with getblock while mining, so the hash
+          # comes from the node without assuming it serves getblockhash.
+          HASH=$(python3 -c "import json;print(json.load(open('/tmp/block1.json'))['result']['hash'])")
+          echo "block 1 hash: $HASH"
+
+          # The defect: an address must reach the address page, not the block
+          # page. MINER_ADDRESS is paid by every coinbase in this job, exactly
+          # as the allocation addresses are on the live network.
+          ci/assert-redirect.sh "$B/search?qs=$MINER_ADDRESS" "$B/address/$MINER_ADDRESS"
+          ci/assert-http.sh     "$B/search?qs=$MINER_ADDRESS" "$MINER_ADDRESS" 'Balance'
+
+          # A height, a block hash and a transaction id still work.
+          ci/assert-redirect.sh "$B/search?qs=1"        "$B/blocks/1"
+          ci/assert-redirect.sh "$B/search?qs=$HASH"    "$B/blocks/$HASH"
+          ci/assert-redirect.sh "$B/search?qs=$COINBASE" "$B/transactions/$COINBASE"
+          ci/assert-http.sh     "$B/search?qs=$HASH"     'Details for the SWARM block'
+          ci/assert-http.sh     "$B/search?qs=$COINBASE" "$COINBASE" 'COINBASE'
+
+          # Nothing unrecognised may reach a route that cannot parse it.
+          for query in "not-a-thing" "0000000000000000000000000000000000000000000000000000000000000000" "t2ThisIsNotARealAddressAtAllXXXXXXX"; do
+            code=$(curl -sS -o /tmp/nf.html -w '%{http_code}' -L --max-time 30 "$B/search?qs=$query")
+            test "$code" = "404" || { echo "FAIL: /search?qs=$query answered $code"; head -n 40 /tmp/nf.html; exit 1; }
+            grep -qF 'That does not look like anything on this chain.' /tmp/nf.html || {
+              echo "FAIL: /search?qs=$query did not render the not-found page"; head -n 40 /tmp/nf.html; exit 1; }
+          done
+
+          # The exact URL the old search produced. A 500 here is the defect.
+          code=$(curl -sS -o /tmp/blk.html -w '%{http_code}' --max-time 30 "$B/blocks/$MINER_ADDRESS")
+          echo "/blocks/<address> answered $code"
+          test "$code" = "404" || { echo "FAIL: expected 404, got $code"; head -n 40 /tmp/blk.html; exit 1; }
+          echo "all search assertions passed"
+
+      - name: Assert the LiveView socket still accepts a connection
+        run: |
+          set -euo pipefail
+          # The session salt moved out of the endpoint module and the socket now
+          # resolves it per connection. curl fails the handshake with exit 26 on
+          # some builds after a successful upgrade, so only the status line is
+          # asserted.
+          KEY=$(openssl rand -base64 16)
+          head=$(curl -sS -i -N --max-time 10 \
+                   -H "Connection: Upgrade" -H "Upgrade: websocket" \
+                   -H "Sec-WebSocket-Version: 13" -H "Sec-WebSocket-Key: $KEY" \
+                   "http://127.0.0.1:4000/live/websocket?vsn=2.0.0" | head -n 1 || true)
+          echo "handshake: $head"
+          case "$head" in
+            *101*) echo "ok: the LiveView socket upgraded" ;;
+            *) echo "FAIL: the LiveView socket did not upgrade"; docker logs explorer | tail -n 60; exit 1 ;;
+          esac
 
       - name: Assert no third-party asset is referenced
         run: |

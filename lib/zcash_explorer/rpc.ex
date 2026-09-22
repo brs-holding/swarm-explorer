@@ -101,15 +101,45 @@ defmodule ZcashExplorer.Rpc do
 
   defp put_auth(options, _), do: options
 
-  defp decode(body) do
+  @doc """
+  Turns a JSON-RPC response body into `{:ok, result}` or `{:error, message}`.
+
+  Public so the shapes below can be tested without a node; not part of the API
+  this module offers the rest of the application.
+
+  ## SWARM change
+
+  The clause `{:ok, %{"result" => result, "error" => %{}}}` looked like "a
+  result, and an empty error object". `%{}` in a *pattern* matches **any** map,
+  so it also matched the shape Zebra returns for a failed call —
+  `{"result": null, "error": {"code": -8, "message": "..."}}` — and every such
+  error was reported to the caller as `{:ok, nil}`. That is why searching a
+  transparent address ended at `/blocks/<address>`: `getblock` "succeeded".
+  `map_size/1` in a guard says what was meant.
+  """
+  def decode(body) do
     case Poison.decode(body) do
-      {:ok, %{"error" => nil, "result" => result}} -> {:ok, result}
-      {:ok, %{"result" => result, "error" => %{}}} -> {:ok, result}
-      {:ok, %{"error" => %{"message" => message}}} -> {:error, message}
-      {:ok, %{"result" => result}} -> {:ok, result}
-      _ -> {:error, "Unknown error."}
+      {:ok, %{"error" => nil, "result" => result}} ->
+        {:ok, result}
+
+      {:ok, %{"error" => error}} when is_map(error) and map_size(error) > 0 ->
+        {:error, error_message(error)}
+
+      {:ok, %{"error" => error}} when is_binary(error) and error != "" ->
+        {:error, error}
+
+      {:ok, %{"result" => result}} ->
+        {:ok, result}
+
+      _ ->
+        {:error, "Unknown error."}
     end
   end
+
+  defp error_message(%{"message" => message}) when is_binary(message) and message != "",
+    do: message
+
+  defp error_message(error), do: "RPC error: #{inspect(error)}"
 
   # --------------------------------------------------------------------------
   # Credentials

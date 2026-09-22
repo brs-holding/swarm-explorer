@@ -8,12 +8,40 @@
 import Config
 
 if config_env() == :prod do
-  secret_key_base =
-    System.get_env("SECRET_KEY_BASE") ||
-      raise """
-      environment variable SECRET_KEY_BASE is missing.
-      Generate one with: mix phx.gen.secret
-      """
+  # ---------------------------------------------------------------------------
+  # Phoenix secrets
+  # ---------------------------------------------------------------------------
+  # All three are compile-time values in a stock Phoenix application, which
+  # means a built image carries whatever the source tree happened to hold —
+  # upstream's published development values, in this fork's case. They are read
+  # here instead, and a missing one stops the boot rather than falling back to
+  # something a reader of the repository already knows.
+  #
+  #   SECRET_KEY_BASE          signs and encrypts the session cookie
+  #   SESSION_SIGNING_SALT     salts that signature (Plug.Session)
+  #   LIVE_VIEW_SIGNING_SALT   salts the LiveView session token
+  #
+  # Generate each one separately:  openssl rand -base64 48
+  require_env = fn name ->
+    case System.get_env(name) do
+      value when is_binary(value) and value != "" ->
+        value
+
+      _ ->
+        raise """
+        environment variable #{name} is missing.
+        Generate one with: openssl rand -base64 48
+        """
+    end
+  end
+
+  secret_key_base = require_env.("SECRET_KEY_BASE")
+  session_signing_salt = require_env.("SESSION_SIGNING_SALT")
+  live_view_signing_salt = require_env.("LIVE_VIEW_SIGNING_SALT")
+
+  # Read by ZcashExplorerWeb.Endpoint.session_options/0, which both the session
+  # plug and the LiveView socket go through, so the two can never drift apart.
+  config :zcash_explorer, :session_options, signing_salt: session_signing_salt
 
   # Phoenix wants a bare host here; EXPLORER_SCHEME supplies the scheme.
   explorer_hostname =
@@ -40,6 +68,7 @@ if config_env() == :prod do
       transport_options: [socket_opts: [:inet], compress: true]
     ],
     secret_key_base: secret_key_base,
+    live_view: [signing_salt: live_view_signing_salt],
     # Derived from EXPLORER_HOSTNAME so the websocket allowlist follows the
     # domain this instance is actually served under. Upstream hardcoded
     # zcashblockexplorer.com.

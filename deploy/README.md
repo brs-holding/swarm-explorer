@@ -69,6 +69,10 @@ services:
       - ./explorer/recipients.json:/etc/swarm/recipients.json:ro
     environment:
       SECRET_KEY_BASE: ${EXPLORER_SECRET_KEY_BASE:?generate with openssl rand -base64 48}
+      # Each is a separate value, and the image no longer carries a
+      # built-in fallback for either: it refuses to start without them.
+      SESSION_SIGNING_SALT: ${EXPLORER_SESSION_SIGNING_SALT:?generate with openssl rand -base64 48}
+      LIVE_VIEW_SIGNING_SALT: ${EXPLORER_LIVE_VIEW_SIGNING_SALT:?generate with openssl rand -base64 48}
       EXPLORER_HOSTNAME: explore.swarm.green
       EXPLORER_SCHEME: https
       EXPLORER_PORT: "443"

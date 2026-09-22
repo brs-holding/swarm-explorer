@@ -146,6 +146,6 @@ defmodule ZcashExplorerWeb.AddressController do
     conn
     |> put_status(:not_found)
     |> put_view(ZcashExplorerWeb.ErrorView)
-    |> render(:invalid_input, address: address)
+    |> render(:invalid_input, query: address, page_title: "Nothing found")
   end
 end

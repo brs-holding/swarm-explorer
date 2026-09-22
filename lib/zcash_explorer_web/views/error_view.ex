@@ -14,10 +14,11 @@ defmodule ZcashExplorerWeb.ErrorView do
     Phoenix.Controller.status_message_from_template(template)
   end
 
-  def render("invalid_input.html", _assigns) do
-    "Invalid input"
-  end
-
+  # SWARM change: `render("invalid_input.html", _)` returned the string
+  # "Invalid input" from here. It is a real page now — templates/error/ — so
+  # that a search which matches nothing, an address the node does not know and
+  # a block that does not exist all say what this explorer can look up. Every
+  # caller passes a `:query` assign, which the template echoes back.
   def render("404.html", _assigns) do
     "Not Found"
   end

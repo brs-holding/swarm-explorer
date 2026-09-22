@@ -28,6 +28,8 @@ the adaptation in churn and make the diff against upstream unreadable.
 docker build -t brs-swarm-explorer .
 docker run --rm -p 4000:4000 \
   -e SECRET_KEY_BASE="$(openssl rand -base64 48)" \
+  -e SESSION_SIGNING_SALT="$(openssl rand -base64 48)" \
+  -e LIVE_VIEW_SIGNING_SALT="$(openssl rand -base64 48)" \
   -e EXPLORER_HOSTNAME=explore.swarm.green \
   -e ZEBRA_RPC_URL=http://zebra:18232 \
   -e ZEBRA_COOKIE_PATH=/zebra-cookie/.cookie \
@@ -53,7 +55,9 @@ Everything is configuration. Nothing in this list is hard-coded in the source.
 
 | Variable | Required | Default | What it does |
 | --- | --- | --- | --- |
-| `SECRET_KEY_BASE` | **yes** | — | Phoenix session/LiveView signing key, at least 64 bytes. Generate with `mix phx.gen.secret` or `openssl rand -base64 48`. The container refuses to start without it. |
+| `SECRET_KEY_BASE` | **yes** | — | Phoenix session and LiveView signing key, at least 64 bytes. Generate with `openssl rand -base64 48`. The container refuses to start without it. |
+| `SESSION_SIGNING_SALT` | **yes** | — | Salts the session cookie's signature. Its own value, generated separately with `openssl rand -base64 48`. It was a literal in the endpoint module and so was frozen into the image; the container now refuses to start without it. |
+| `LIVE_VIEW_SIGNING_SALT` | **yes** | — | Salts the LiveView session token. Its own value, generated separately with `openssl rand -base64 48`. It was a literal in `config/config.exs`; the container now refuses to start without it. |
 | `EXPLORER_HOSTNAME` | no | `localhost` | Public hostname. Drives the generated URLs **and** the LiveView `check_origin` allowlist. A scheme prefix and a trailing slash are stripped, so `https://explore.swarm.green/` and `explore.swarm.green` both work. |
 | `EXPLORER_SCHEME` | no | `https` | Scheme in generated URLs. |
 | `EXPLORER_PORT` | no | `443` | Port in generated URLs (the public one, behind the proxy). |

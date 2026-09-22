@@ -6,7 +6,8 @@
 #
 #   docker build -t swarm-explorer .
 #   docker run --rm -p 4000:4000 \
-#     -e SECRET_KEY_BASE=... -e EXPLORER_HOSTNAME=explore.swarm.green \
+#     -e SECRET_KEY_BASE=... -e SESSION_SIGNING_SALT=... \
+#     -e LIVE_VIEW_SIGNING_SALT=... -e EXPLORER_HOSTNAME=explore.swarm.green \
 #     -e ZEBRA_RPC_URL=http://zebra:18232 -e ZEBRA_COOKIE_PATH=/zebra/.cookie \
 #     -v zebra-cookie:/zebra:ro swarm-explorer
 

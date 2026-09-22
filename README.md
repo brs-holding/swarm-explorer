@@ -10,7 +10,7 @@ and keeps no database.
 
 ```sh
 docker build -t brs-swarm-explorer .
-docker run --rm -p 4000:4000   -e SECRET_KEY_BASE="$(openssl rand -base64 48)"   -e ZEBRA_RPC_URL=http://127.0.0.1:18232   -e ZEBRA_COOKIE_PATH=/zebra-cookie/.cookie   -v zebra-cookie:/zebra-cookie:ro   brs-swarm-explorer
+docker run --rm -p 4000:4000   -e SECRET_KEY_BASE="$(openssl rand -base64 48)"   -e SESSION_SIGNING_SALT="$(openssl rand -base64 48)"   -e LIVE_VIEW_SIGNING_SALT="$(openssl rand -base64 48)"   -e ZEBRA_RPC_URL=http://127.0.0.1:18232   -e ZEBRA_COOKIE_PATH=/zebra-cookie/.cookie   -v zebra-cookie:/zebra-cookie:ro   brs-swarm-explorer
 ```
 
 SWARM testnet coins have no value. SWARM is not affiliated with the Electric
