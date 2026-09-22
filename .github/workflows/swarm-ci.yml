@@ -324,6 +324,68 @@ jobs:
             *) echo "FAIL: the LiveView socket did not upgrade"; docker logs explorer | tail -n 60; exit 1 ;;
           esac
 
+      # -------------------------------------------------------------------
+      # The deployment runs this image with read_only: true and a tmpfs on
+      # /tmp. tzdata polled IANA for a newer timezone database and wrote a
+      # marker into its own priv directory inside the release every three
+      # seconds; on a read-only root that write can never succeed, so the
+      # updater crashed and was restarted, forever.
+      # -------------------------------------------------------------------
+      - name: Assert a read-only boot logs no tzdata updater error
+        run: |
+          set -euo pipefail
+          docker run -d --name explorer-ro --network "$NETWORK" \
+            --read-only --tmpfs /tmp \
+            -p 4001:4000 \
+            -v "$COOKIE_VOLUME:/zebra-cookie:ro" \
+            -e SECRET_KEY_BASE="$(openssl rand -base64 48)" \
+            -e SESSION_SIGNING_SALT="$(openssl rand -base64 48)" \
+            -e LIVE_VIEW_SIGNING_SALT="$(openssl rand -base64 48)" \
+            -e EXPLORER_HOSTNAME=localhost \
+            -e EXPLORER_SCHEME=http \
+            -e EXPLORER_PORT=4001 \
+            -e PORT=4000 \
+            -e ZEBRA_RPC_URL=http://zebra:18232 \
+            -e ZEBRA_COOKIE_PATH=/zebra-cookie/.cookie \
+            -e SWARM_WARMER_INTERVAL_MS=3000 \
+            "$IMAGE:ci"
+
+          # Nothing is mounted over lib/tzdata-*/priv and read_only stays on:
+          # the fix is that nothing tries to write there any more.
+          for i in $(seq 1 90); do
+            case "$(curl -sS --max-time 5 http://127.0.0.1:4001/healthz || true)" in
+              *'"status":"ok"'*) echo "read-only explorer answering after ${i}s"; break ;;
+            esac
+            if [ "$i" = "90" ]; then
+              echo "FAIL: the read-only container never answered"
+              docker logs explorer-ro 2>&1 | tail -n 120; exit 1
+            fi
+            sleep 1
+          done
+
+          # 25 seconds is eight polls at the old three-second interval.
+          sleep 25
+
+          # A container that had died would also log no updater error, so the
+          # absence only means something if it is still up and still serving.
+          test "$(docker inspect -f '{{.State.Running}}' explorer-ro)" = "true" || {
+            echo "FAIL: the read-only container is not running"
+            docker logs explorer-ro 2>&1 | tail -n 120; exit 1; }
+          # "Mined on" is rendered through Timex, which is the only thing the
+          # timezone database is used for: it must still work.
+          ci/assert-http.sh "http://127.0.0.1:4001/blocks/1" \
+            'Details for the SWARM block' 'Mined on'
+
+          UPDATER=$(docker logs explorer-ro 2>&1 | grep -c "tzdata_release_updater" || true)
+          READONLY=$(docker logs explorer-ro 2>&1 | grep -c "read-only file system" || true)
+          LINES=$(docker logs explorer-ro 2>&1 | wc -l)
+          echo "in $LINES log lines: $UPDATER tzdata updater, $READONLY read-only write failures"
+          docker logs explorer-ro 2>&1 | grep -iE "tzdata|read-only" | head -n 20 || true
+
+          test "$UPDATER" = "0" || { echo "FAIL: the tzdata updater is still running"; exit 1; }
+          test "$READONLY" = "0" || { echo "FAIL: something still writes to the read-only root"; exit 1; }
+          echo "ok: 25s on a read-only filesystem, no tzdata error, still serving"
+
       - name: Assert no third-party asset is referenced
         run: |
           set -euo pipefail
@@ -390,6 +452,7 @@ jobs:
         if: always()
         run: |
           echo "===== explorer ====="; docker logs explorer 2>&1 | tail -n 200 || true
+          echo "===== explorer (read-only) ====="; docker logs explorer-ro 2>&1 | tail -n 80 || true
           echo "===== zebra ====="; docker logs zebra 2>&1 | tail -n 120 || true
 
       - name: Check the explorer never logged the cookie secret
@@ -450,6 +513,6 @@ jobs:
       - name: Tear down
         if: always()
         run: |
-          docker rm -f explorer zebra 2>/dev/null || true
+          docker rm -f explorer explorer-ro zebra 2>/dev/null || true
           docker network rm "$NETWORK" 2>/dev/null || true
           docker volume rm "$COOKIE_VOLUME" "$STATE_VOLUME" 2>/dev/null || true

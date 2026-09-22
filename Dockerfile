@@ -67,6 +67,14 @@ COPY --from=build --chown=${UID}:${GID} /app/_build/prod/rel/zcash_explorer ./
 
 ENV HOME=/app PORT=4000 LANG=C.UTF-8
 
+# The release evaluates config/runtime.exs at boot and writes the resulting
+# sys.config under RELEASE_TMP, which defaults to /app/tmp. This image is meant
+# to run with `read_only: true` and a tmpfs on /tmp, so /app/tmp is not
+# writable and that write is the one thing that would stop the boot. Pointing
+# it at /tmp makes the image read-only-ready with no extra configuration; /tmp
+# is an ordinary writable directory when the container is not hardened.
+ENV RELEASE_TMP=/tmp
+
 # Conservative defaults for a 2 vCPU / 4 GB server; see README-SWARM.md.
 ENV SWARM_CACHE_LIMIT=1500 SWARM_CACHE_TTL_MINUTES=15 SWARM_WARMER_WINDOW=21
 

@@ -47,6 +47,24 @@ config :zcash_explorer, ZcashExplorer.Rpc,
   password: nil,
   timeout: 120_000
 
+# SWARM change: tzdata ships a timezone database inside the release and, left
+# alone, polls IANA for a newer one every few seconds and writes a marker into
+# its own priv directory. A release has no business downloading anything at
+# runtime, and this one runs with a read-only root filesystem, so the write
+# could never succeed: the updater crashed, its supervisor restarted it, and it
+# retried three seconds later, forever — 722 crashes in the first 36 minutes on
+# the deployed image, about 1,200 log lines an hour, which rotated the log away
+# faster than anything useful could stay in it (workstream F, 2026-09-22).
+#
+# The database compiled into the image is what serves. Updating it means
+# building a new image, which is how everything else here is updated. Set for
+# every environment, not just :prod, because nothing should poll in the
+# background on a laptop either.
+#
+# Timex is only used to format block timestamps as UTC (BlockView.mined_time/1
+# and friends), so no timezone conversion depends on a newer release.
+config :tzdata, :autoupdate, :disabled
+
 # Configures Elixir's Logger
 config :logger, :console,
   format: "$time $metadata[$level] $message\n",
