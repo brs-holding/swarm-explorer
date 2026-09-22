@@ -119,6 +119,11 @@ jobs:
       - name: The image refuses to boot with a Phoenix secret missing
         run: |
           set -uo pipefail
+          # The runner starts every step with `bash -e`, and a container that
+          # refuses to start is the result this step is looking for, so errexit
+          # has to be turned off explicitly rather than merely not turned on.
+          set +e
+
           declare -A value=(
             [SECRET_KEY_BASE]="$(openssl rand -base64 48)"
             [SESSION_SIGNING_SALT]="$(openssl rand -base64 48)"
@@ -135,16 +140,17 @@ jobs:
             out=$(timeout 90 docker run --rm "${args[@]}" "$IMAGE:ci" 2>&1)
             status=$?
             echo "--- without $missing: exit $status"
-            echo "$out" | tail -n 8
+            echo "$out" | tail -n 12
 
             if [ "$status" -eq 0 ]; then
               echo "FAIL: the image started without $missing"; exit 1
             fi
-            if ! echo "$out" | grep -qF "$missing"; then
-              echo "FAIL: the failure did not name $missing"; exit 1
+            if ! printf '%s' "$out" | grep -qF "$missing"; then
+              echo "FAIL: the boot failed, but the message did not name $missing"; exit 1
             fi
           done
           echo "ok: every missing secret stops the boot, by name"
+          exit 0
 
       - name: Start Zebra in Regtest mode with cookie auth
         run: |
