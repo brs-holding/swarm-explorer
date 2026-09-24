@@ -26,9 +26,16 @@ defmodule ZcashExplorerWeb.SearchTest do
   @tm_addr "tmFPcPUjvLNtgqnVgUVCbRJnhuxtMvKrDkV"
   @zaddr "ztestsapling1ttkqqqqpqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq"
   @uaddr "utest1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq"
+  @swarm_addr "swarm1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq"
   @hash "045993f5a9c1cc80e1f0e1b9e0d5f2ae9d4b3c2a1908f7e6d5c4b3a291807f6e"
 
   describe "classification, which needs no node" do
+    test "both unified prefix forms reach their address detail route" do
+      for address <- [@uaddr, @swarm_addr] do
+        assert SearchController.classify(address) == {:redirect, "/ua/#{address}"}
+      end
+    end
+
     test "a transparent address goes to the address page, not the block page" do
       assert SearchController.classify(@taddr) == {:redirect, "/address/#{@taddr}"}
       assert SearchController.classify(@tm_addr) == {:redirect, "/address/#{@tm_addr}"}
@@ -154,8 +161,10 @@ defmodule ZcashExplorerWeb.SearchTest do
       assert body =~ @taddr
     end
 
-    test "/ua/<unified address> with no node is 404, never 500", %{conn: conn} do
-      assert conn |> get("/ua/#{@uaddr}") |> html_response(404) =~ "NOTHING FOUND"
+    test "both unified forms fail gracefully when the node is unavailable", %{conn: conn} do
+      for address <- [@uaddr, @swarm_addr], route <- ["ua", "address"] do
+        assert conn |> get("/#{route}/#{address}") |> html_response(404) =~ "NOTHING FOUND"
+      end
     end
 
     test "/transactions/<64 hex> with no node is 404, never 500", %{conn: conn} do

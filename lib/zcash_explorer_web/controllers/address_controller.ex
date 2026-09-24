@@ -20,6 +20,9 @@ defmodule ZcashExplorerWeb.AddressController do
   def get_address(conn, %{"address" => "zc" <> _ = address}), do: render_z_address(conn, address)
   def get_address(conn, %{"address" => "zs" <> _ = address}), do: render_z_address(conn, address)
 
+  def get_address(conn, %{"address" => "swarm1" <> _ = address}),
+    do: get_ua(conn, %{"address" => address})
+
   def get_address(conn, %{"address" => "utest" <> _ = address}),
     do: get_ua(conn, %{"address" => address})
 
@@ -62,6 +65,7 @@ defmodule ZcashExplorerWeb.AddressController do
     end
   end
 
+  defp unified?("swarm1" <> _), do: true
   defp unified?("utest" <> _), do: true
   defp unified?("u" <> _), do: true
   defp unified?(_), do: false

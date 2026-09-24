@@ -36,7 +36,7 @@ defmodule ZcashExplorerWeb.SearchController do
   # does not know it.
   @transparent_prefixes ~w(t1 t2 t3 tm)
   @shielded_prefixes ~w(ztestsapling zs zc zt)
-  @unified_prefixes ~w(utest1 u1)
+  @unified_prefixes ~w(swarm1 utest1 u1)
 
   # A block hash and a transaction id are both this long, in hex.
   @hash_length 64
