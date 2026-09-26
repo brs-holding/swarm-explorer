@@ -17,7 +17,7 @@ artifact named `swarm-explorer-image-<git-sha>` containing:
 | `image-manifest.json` | git sha and ref, image id, image and tarball size, build time, platform, the workflow run URL, and the measured steady-state memory |
 
 Download it from the run page (or `gh run download <run-id> -R
-brs-holding/swarm-explorer -n swarm-explorer-image-<git-sha>`), copy it to the
+Swarm-Official/swarm-explorer -n swarm-explorer-image-<git-sha>`), copy it to the
 server, then:
 
 ```sh

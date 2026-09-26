@@ -81,13 +81,14 @@ Everything is configuration. Nothing in this list is hard-coded in the source.
 | Variable | Required | Default | What it does |
 | --- | --- | --- | --- |
 | `SWARM_PROJECT_NAME` | no | `SWARM` | Shown in page titles and headings. |
-| `SWARM_NETWORK_NAME` | no | `SwarmTestnet` | Shown next to the logo and in `/healthz`. |
+| `SWARM_NETWORK_NAME` | no | `SwarmTestnet` | Shown next to the logo and in `/healthz`. Also decides the network profile below, unless `SWARM_NETWORK_KIND` is set. |
+| `SWARM_NETWORK_KIND` | no | derived | `mainnet` or `testnet`. Set it only when the network name does not say which. |
 | `SWARM_TICKER` | no | `SWM` | Coin ticker appended to every public amount. The project is SWARM; the coin is SWM. |
 | `SWARM_MAX_SUPPLY` | no | `20999987.3152` | Denominator of the "supply issued" figure (`specs/ECONOMICS.md` §3). Must parse as a float, so write `21000000.0`, not `21000000`. |
 | `SWARM_HALVING_INTERVAL` | no | `1680000` | Blocks per era. The first halving lands at `interval - 1` = 1,679,999, matching upstream's `floor((height + 1) / interval)`. |
 | `SWARM_BLOCK_TARGET_SECONDS` | no | `75` | Target block spacing. Also the default for the warmer interval. |
-| `SWARM_RECIPIENTS_FILE` | no | unset | Path to a JSON array describing the three reward destinations (below). Takes precedence over `SWARM_RECIPIENTS`. |
-| `SWARM_RECIPIENTS` | no | unset | The same JSON array, inline. |
+| `SWARM_RECIPIENTS_FILE` | no | unset | Path to a JSON file describing the three reward destinations (below). Takes precedence over `SWARM_RECIPIENTS`. |
+| `SWARM_RECIPIENTS` | no | unset | The same JSON, inline. |
 
 With neither set, the explorer still renders a correct breakdown using the
 labels and percentages of `specs/ECONOMICS.md`, but cannot link the
@@ -102,6 +103,23 @@ destination addresses or badge them on the address page.
   {"slot": "ZcashFoundation", "label": "Community & Development Reserve", "address": "t2...", "percent": 8}
 ]
 ```
+
+The file `swarm-mainnet render` writes beside the node's own configuration is
+read too, so that one file can serve the node and the explorer and the two
+cannot drift apart. It wraps the list, calls the share `numerator`, and carries
+no slot names — each entry is then placed by its label:
+
+```json
+{"recipients": [
+  {"label": "Core Development",                "address": "s3...", "numerator": 8},
+  {"label": "Grants & Ecosystem",              "address": "s3...", "numerator": 4},
+  {"label": "Community & Development Reserve", "address": "s3...", "numerator": 8}
+]}
+```
+
+An entry may also name its slot as `upstream_slot`. `test/swarm/recipients_config_test.exs`
+asserts that both shapes produce the same allocation, and the end-to-end CI job
+boots the image against the wrapped shape.
 
 `slot` is the **upstream Zebra receiver name**, exactly as it appears in the
 node's `funding_streams` TOML. Zebra's `getblocksubsidy` reports these slots

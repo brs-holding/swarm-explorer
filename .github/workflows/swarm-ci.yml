@@ -266,6 +266,82 @@ jobs:
           echo "all page assertions passed"
 
       # -------------------------------------------------------------------
+      # The same image, configured for the mainnet. Two things are proven at
+      # once: the templates drop every "test coins" promise, and the
+      # allocation file `swarm-mainnet render` writes — a {"recipients":[...]}
+      # object with `numerator` and no `slot` — is read. Before this change
+      # the strings were literals and that file shape crashed the boot, so the
+      # mainnet ran a second, hand-derived copy of the same three addresses.
+      # -------------------------------------------------------------------
+      - name: Assert the mainnet profile says nothing about test coins
+        run: |
+          set -euo pipefail
+          # Written exactly as `swarm-mainnet render` writes it: an object,
+          # `numerator` rather than `percent`, and no slot names at all.
+          printf '%s' '{"recipients":[{"label":"Core Development","address":"t2CoreDevelopmentFixtureAddress0001","numerator":8},{"label":"Grants & Ecosystem","address":"t2GrantsEcosystemFixtureAddress0002","numerator":4},{"label":"Community & Development Reserve","address":"t2CommunityReserveFixtureAddress003","numerator":8}]}' > /tmp/recipients-rendered.json
+          chmod 0644 /tmp/recipients-rendered.json
+
+          docker run -d --name explorer-mainnet --network "$NETWORK" \
+            -p 4002:4000 \
+            -v "$COOKIE_VOLUME:/zebra-cookie:ro" \
+            -v /tmp/recipients-rendered.json:/etc/swarm/recipients.json:ro \
+            -e SECRET_KEY_BASE="$(openssl rand -base64 48)" \
+            -e SESSION_SIGNING_SALT="$(openssl rand -base64 48)" \
+            -e LIVE_VIEW_SIGNING_SALT="$(openssl rand -base64 48)" \
+            -e EXPLORER_HOSTNAME=localhost \
+            -e EXPLORER_SCHEME=http \
+            -e EXPLORER_PORT=4002 \
+            -e PORT=4000 \
+            -e ZEBRA_RPC_URL=http://zebra:18232 \
+            -e ZEBRA_COOKIE_PATH=/zebra-cookie/.cookie \
+            -e SWARM_NETWORK_NAME=SwarmMainnet \
+            -e SWARM_TICKER=SWM \
+            -e SWARM_PROJECT_NAME=SWARM \
+            -e SWARM_WARMER_INTERVAL_MS=3000 \
+            -e SWARM_RECIPIENTS_FILE=/etc/swarm/recipients.json \
+            "$IMAGE:ci"
+
+          for i in $(seq 1 90); do
+            BODY=$(curl -sS --max-time 5 http://127.0.0.1:4002/healthz || true)
+            case "$BODY" in
+              *'"network":"SwarmMainnet"'*) echo "mainnet profile healthy after ${i}s: $BODY"; break ;;
+            esac
+            if [ "$i" = "90" ]; then
+              echo "the mainnet-profile container never answered"
+              docker logs explorer-mainnet | tail -n 150; exit 1
+            fi
+            sleep 1
+          done
+
+          # The renderer's file was read: three destinations, not a crash and
+          # not the built-in fallback.
+          docker logs explorer-mainnet 2>&1 | grep -qF "3 reward destinations" || {
+            echo "FAIL: the rendered allocation file was not read"
+            docker logs explorer-mainnet | tail -n 60; exit 1; }
+
+          M=http://127.0.0.1:4002
+          ci/assert-http.sh "$M/" \
+            'The hive, in the open.' \
+            'SwarmMainnet' \
+            'SWARM Mainnet' \
+            'https://github.com/Swarm-Official'
+
+          # Not one word of it anywhere on the page, in any casing.
+          curl -sS -L --max-time 60 "$M/" > /tmp/mainnet-home.html
+          for forbidden in 'TEST COINS' 'test coins' 'TESTNET' 'Testnet' 'testnet' 'NO VALUE' 'brs-holding'; do
+            if grep -qiF -- "$forbidden" /tmp/mainnet-home.html; then
+              echo "FAIL: the mainnet home page still contains: $forbidden"
+              grep -inF -- "$forbidden" /tmp/mainnet-home.html | head -n 5
+              exit 1
+            fi
+          done
+          echo "ok: the mainnet home page promises nothing about test coins"
+
+          # And the test network is untouched by the same image.
+          ci/assert-http.sh "http://127.0.0.1:4000/" 'TEST COINS, NO VALUE' 'TEST COINS HAVE NO VALUE'
+          docker rm -f explorer-mainnet >/dev/null
+
+      # -------------------------------------------------------------------
       # The search box, against a real node. Searching a transparent address
       # used to redirect to /blocks/<address>, which returned HTTP 500.
       # -------------------------------------------------------------------

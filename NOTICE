@@ -58,6 +58,16 @@ explaining the reason at the point of the change.
    - Added lib/zcash_explorer/swarm.ex. Network name, ticker, maximum supply,
      halving interval, block target and the three reward destinations all come
      from configuration; nothing is hard-coded per deployment.
+   - The network profile. One image serves both networks: ZcashExplorer.Swarm
+     .network_kind/0 reads SWARM_NETWORK_KIND or, failing that, the network
+     name, and the "test coins have no value" wording in the hero, the footer
+     and the not-found page is shown only on a test network. An unrecognised
+     network name is treated as a test network, so the warning cannot be
+     dropped by a misconfiguration.
+   - The allocation is read in either shape it is written in: the bare array
+     this explorer has always taken, and the {"recipients": [...]} object with
+     "numerator" that the SWARM stack's own renderer writes beside the node's
+     configuration, so one file can serve both and they cannot drift apart.
    - The block page gained a "Block reward" breakdown: four rows (miner plus
      the three allocations) with amount, share of the subsidy and a linked
      destination address, read from getblocksubsidy.

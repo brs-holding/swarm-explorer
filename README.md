@@ -20,5 +20,5 @@ project, or Nighthawk Apps.
 Licensed under the Apache License 2.0 — see [`LICENSE`](LICENSE) and
 [`NOTICE`](NOTICE).
 
-Official channels: <https://swarm.green> · <https://github.com/brs-holding> ·
+Official channels: <https://swarm.green> · <https://github.com/Swarm-Official> ·
 [@swarm_coin](https://x.com/swarm_coin) · swarmofficial@atomicmail.io

@@ -100,12 +100,19 @@ if config_env() == :prod do
   # ---------------------------------------------------------------------------
   # Network identity and the block-reward allocation
   # ---------------------------------------------------------------------------
-  # Either SWARM_RECIPIENTS_FILE (path to a JSON array) or SWARM_RECIPIENTS
-  # (the JSON array inline). Each entry:
-  #   {"slot":"ECC","label":"Core Development","address":"t2…","percent":8}
-  # `slot` is the upstream Zebra receiver name: ECC, MajorGrants,
-  # ZcashFoundation. Nothing is hard-coded in the source.
-  recipients =
+  # Either SWARM_RECIPIENTS_FILE (path to a JSON file) or SWARM_RECIPIENTS (the
+  # same JSON inline). Two shapes are read, so that the file the node's own
+  # configuration is rendered from can be handed straight to the explorer:
+  #
+  #   [{"slot":"ECC","label":"Core Development","address":"s3…","percent":8}]
+  #   {"recipients":[{"label":"Core Development","address":"s3…","numerator":8}]}
+  #
+  # `slot` is the upstream Zebra receiver name (ECC, MajorGrants,
+  # ZcashFoundation); when an entry has none it is looked up from its label.
+  # `numerator` is the renderer's name for `percent`. Nothing is hard-coded in
+  # the source. ZcashExplorer.Swarm normalises both again at read time, so
+  # neither layer alone can let the two files drift apart.
+  decoded =
     case {System.get_env("SWARM_RECIPIENTS_FILE"), System.get_env("SWARM_RECIPIENTS")} do
       {path, _} when is_binary(path) and path != "" ->
         path |> File.read!() |> Jason.decode!()
@@ -117,9 +124,20 @@ if config_env() == :prod do
         []
     end
 
+  recipients =
+    case decoded do
+      %{"recipients" => list} when is_list(list) -> list
+      list when is_list(list) -> list
+      _ -> []
+    end
+
   config :zcash_explorer, ZcashExplorer.Swarm,
     project_name: System.get_env("SWARM_PROJECT_NAME", "SWARM"),
     network_name: System.get_env("SWARM_NETWORK_NAME", "SwarmTestnet"),
+    # "mainnet" or "testnet". Unset means "read it off the network name", which
+    # is what every deployment does; an unrecognisable name stays a test
+    # network, so the "no value" warning is never dropped by accident.
+    network_kind: System.get_env("SWARM_NETWORK_KIND"),
     ticker: System.get_env("SWARM_TICKER", "SWM"),
     max_supply: String.to_float(System.get_env("SWARM_MAX_SUPPLY") || "20999987.3152"),
     halving_interval: String.to_integer(System.get_env("SWARM_HALVING_INTERVAL") || "1680000"),

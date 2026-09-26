@@ -31,8 +31,9 @@
 
     <p class="mt-4 text-[13.5px]" style="color:var(--sw-low);">
       A block or a transaction this node has not seen yet will not be found
-      here either. <%= assigns[:network_name] || "This network" %> is a test
-      network and its history can be replaced.
+      here either.<%= unless ZcashExplorer.Swarm.mainnet?() do %>
+        <%= assigns[:network_name] || "This network" %> is a test
+        network and its history can be replaced.<% end %>
     </p>
 
     <form action="/search" class="sw-search mt-6">

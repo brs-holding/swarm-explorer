@@ -1,12 +1,20 @@
 <footer class="mt-auto px-6 py-10 md:px-10" style="border-top:1px solid var(--sw-hairline);">
   <div class="mx-auto max-w-[1240px]">
+    <%!-- One image serves both networks. On the mainnet the coins are real, so
+          the "no value" warning must not appear anywhere on the page; on a test
+          network the wording is unchanged. ZcashExplorer.Swarm.mainnet?/0 reads
+          the configured network, nothing is compiled in per deployment. --%>
     <p class="text-center sw-mono text-[11px] tracking-[.14em]" style="color:var(--sw-honey);">
-      <%= @project_name %> TESTNET &mdash; TEST COINS HAVE NO VALUE
+      <%= if ZcashExplorer.Swarm.mainnet?() do %>
+        <%= @project_name %> Mainnet
+      <% else %>
+        <%= @project_name %> TESTNET &mdash; TEST COINS HAVE NO VALUE
+      <% end %>
     </p>
 
     <nav class="mt-5 flex flex-wrap justify-center gap-x-7 gap-y-2 text-[13px]" aria-label="Footer">
       <a href="https://swarm.green" rel="noreferrer" style="color:var(--sw-mid);">swarm.green</a>
-      <a href="https://github.com/brs-holding" rel="noreferrer" style="color:var(--sw-mid);">Source</a>
+      <a href="https://github.com/Swarm-Official" rel="noreferrer" style="color:var(--sw-mid);">Source</a>
       <a href="https://x.com/swarm_coin" rel="noreferrer" style="color:var(--sw-mid);">@swarm_coin</a>
       <a href="mailto:swarmofficial@atomicmail.io" style="color:var(--sw-mid);">swarmofficial@atomicmail.io</a>
       <a href="/privacy.html" style="color:var(--sw-mid);">Privacy</a>

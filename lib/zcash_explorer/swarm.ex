@@ -24,6 +24,15 @@ defmodule ZcashExplorer.Swarm do
   The post-NU6 spelling is the one SwarmTestnet produces, because every upgrade
   through NU6.3 is active from height 1; the pre-NU6 spelling is accepted too so
   the explorer also reads a chain configured differently.
+
+  ## The network profile
+
+  One image serves both networks. `network_kind/0` decides which, from
+  `SWARM_NETWORK_KIND` when it is set and otherwise from the configured
+  `network_name`: a name that says "test" is a test network, a name that says
+  "main" is the mainnet, and **anything else is treated as a test network**, so
+  a missing or misspelt setting keeps the "no value" warning rather than
+  dropping it. `mainnet?/0` is what the templates branch on.
   """
 
   @type recipient :: %{
@@ -55,8 +64,45 @@ defmodule ZcashExplorer.Swarm do
     %{slot: "ZcashFoundation", label: "Community & Development Reserve", address: nil, percent: 8}
   ]
 
+  # The SWARM label of each slot, so an allocation file that carries labels but
+  # no slot names — the shape `swarm-mainnet render` writes — still lands in the
+  # right slot. Derived from the defaults above; there is one list of labels.
+  @label_slots Map.new(@default_recipients, fn r -> {r.label, r.slot} end)
+
   @doc "Display name of the network, e.g. \"SwarmTestnet\"."
   def network_name, do: config(:network_name, "SwarmTestnet")
+
+  @doc """
+  `:mainnet` or `:testnet`, for the templates that must not promise a test coin
+  on a chain whose coins are real.
+
+  `SWARM_NETWORK_KIND` (config key `:network_kind`) wins when it is set.
+  Otherwise the configured `network_name` decides, and an unrecognised name is
+  a test network: the warning is dropped only on a positive statement that this
+  is the mainnet.
+  """
+  @spec network_kind() :: :mainnet | :testnet
+  def network_kind do
+    case config(:network_kind, nil) do
+      kind when kind in [:mainnet, "mainnet"] -> :mainnet
+      kind when kind in [:testnet, "testnet"] -> :testnet
+      _ -> infer_kind(network_name())
+    end
+  end
+
+  @doc "True only when this explorer is configured for the SWARM mainnet."
+  @spec mainnet?() :: boolean()
+  def mainnet?, do: network_kind() == :mainnet
+
+  defp infer_kind(name) do
+    down = name |> to_string() |> String.downcase()
+
+    cond do
+      String.contains?(down, "test") -> :testnet
+      String.contains?(down, "main") -> :mainnet
+      true -> :testnet
+    end
+  end
 
   @doc "Coin ticker for every public amount. The project is SWARM; the coin is SWM."
   def ticker, do: config(:ticker, "SWM")
@@ -82,11 +128,26 @@ defmodule ZcashExplorer.Swarm do
   """
   @spec recipients() :: [recipient()]
   def recipients do
-    case config(:recipients, nil) do
+    case unwrap(config(:recipients, nil)) do
       list when is_list(list) and list != [] -> Enum.map(list, &normalise/1)
       _ -> @default_recipients
     end
   end
+
+  @doc """
+  The allocation out of already-decoded JSON, in either shape it is written in.
+
+  A bare array — `[{"slot","label","address","percent"}]` — is what this
+  explorer has always read. `%{"recipients" => [...]}` with `numerator` instead
+  of `percent` and no `slot` is what `swarm-mainnet render` writes beside the
+  node's own configuration. Both are accepted so that one allocation file
+  serves the node and the explorer and the two cannot drift apart.
+  """
+  @spec unwrap(term()) :: list()
+  def unwrap(%{"recipients" => list}) when is_list(list), do: list
+  def unwrap(%{recipients: list}) when is_list(list), do: list
+  def unwrap(list) when is_list(list), do: list
+  def unwrap(_), do: []
 
   @doc "The recipient configured for an upstream slot name or recipient string."
   @spec recipient_for(String.t() | nil) :: recipient() | nil
@@ -229,15 +290,24 @@ defmodule ZcashExplorer.Swarm do
   def shielded_pools(_), do: []
 
   defp normalise(%{} = entry) do
-    slot = to_string(entry[:slot] || entry["slot"] || entry[:receiver] || entry["receiver"] || "")
+    label = first([entry[:label], entry["label"]])
+
+    slot =
+      [entry[:slot], entry["slot"], entry[:upstream_slot], entry["upstream_slot"],
+       entry[:receiver], entry["receiver"], Map.get(@label_slots, label)]
+      |> first()
+      |> to_string()
 
     %{
       slot: Map.get(@slot_aliases, slot, slot),
-      label: entry[:label] || entry["label"] || slot,
-      address: blank_to_nil(entry[:address] || entry["address"]),
-      percent: entry[:percent] || entry["percent"]
+      label: label || slot,
+      address: blank_to_nil(first([entry[:address], entry["address"]])),
+      # `numerator` is the renderer's name for the same whole-percent share.
+      percent: first([entry[:percent], entry["percent"], entry[:numerator], entry["numerator"]])
     }
   end
+
+  defp first(values), do: Enum.find(values, fn v -> v != nil and v != "" end)
 
   defp blank_to_nil(""), do: nil
   defp blank_to_nil(value), do: value
